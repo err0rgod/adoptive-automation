@@ -54,6 +54,17 @@
         </article>
       </section>
 
+      <section class="automation-panel" aria-labelledby="automation-title">
+        <div>
+          <p class="channel-kind">Automation test</p>
+          <h2 id="automation-title">PIR motion</h2>
+          <p class="automation-copy">Simulates motion through the ESP32 timer for Light 1.</p>
+        </div>
+        <button id="pir-test-button" class="test-button" type="button" disabled>
+          Test PIR
+        </button>
+      </section>
+
       <section class="channel-grid" aria-label="Relay channels">
         {% for channel in channels %}
         <article class="channel-card" data-channel="{{ channel.id }}">

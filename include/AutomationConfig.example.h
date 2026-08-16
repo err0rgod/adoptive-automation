@@ -7,6 +7,7 @@
 namespace automation_config {
 
 inline constexpr bool kPirLightEnabled = false;
+inline constexpr bool kPirDashboardTestEnabled = true;
 inline constexpr uint8_t kPirPin = 32;
 inline constexpr uint8_t kPirActiveLevel = HIGH;
 inline constexpr char kPirTargetChannelId[] = "light-1";

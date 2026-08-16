@@ -11,6 +11,7 @@ const humidityValue = document.querySelector("#humidity-value");
 const mmWaveCard = document.querySelector("#mmwave-card");
 const mmWaveStatus = document.querySelector("#mmwave-status");
 const presenceValue = document.querySelector("#presence-value");
+const pirTestButton = document.querySelector("#pir-test-button");
 let snapshot = null;
 
 function setBadge(element, online, onlineText, offlineText) {
@@ -23,6 +24,9 @@ function render(data) {
   snapshot = data;
   setBadge(brokerBadge, data.broker_connected, "Broker online", "Broker offline");
   setBadge(deviceBadge, data.device_online, "Device online", "Device offline");
+  const pirTargetReady = data.channels?.["light-1"]?.state === false;
+  pirTestButton.disabled =
+    !data.broker_connected || !data.device_online || !pirTargetReady;
 
   const dht11 = data.sensors?.dht11;
   const dht11Available = dht11?.available === true;
@@ -88,9 +92,28 @@ async function sendCommand(channelId) {
   }
 }
 
+async function testPirMotion() {
+  pirTestButton.disabled = true;
+  message.textContent = "Sending PIR test motion...";
+  try {
+    const response = await fetch("/api/automation/pir/test", { method: "POST" });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "PIR test failed");
+    }
+    message.textContent = "PIR test sent; waiting for ESP32 acknowledgement";
+  } catch (error) {
+    message.textContent = error.message;
+  } finally {
+    pirTestButton.disabled = !snapshot?.broker_connected || !snapshot?.device_online;
+  }
+}
+
 for (const [channelId, card] of cards) {
   card.querySelector("button").addEventListener("click", () => sendCommand(channelId));
 }
+
+pirTestButton.addEventListener("click", testPirMotion);
 
 function connectWebSocket() {
   const protocol = location.protocol === "https:" ? "wss" : "ws";

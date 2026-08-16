@@ -10,10 +10,12 @@
 using MqttCommandHandler =
     void (*)(size_t channelIndex, bool state, const char* source,
              const char* commandId);
+using MqttPirTestHandler = void (*)();
 
 class LocalMqtt {
  public:
-  void begin(MqttCommandHandler commandHandler);
+  void begin(MqttCommandHandler commandHandler,
+             MqttPirTestHandler pirTestHandler = nullptr);
   void loop();
   void publishChannelState(size_t channelIndex, bool state,
                            const char* source, const char* commandId = "");
@@ -35,6 +37,7 @@ class LocalMqtt {
   WiFiClient wifiClient_;
   PubSubClient client_{wifiClient_};
   MqttCommandHandler commandHandler_ = nullptr;
+  MqttPirTestHandler pirTestHandler_ = nullptr;
   IPAddress brokerAddress_;
   uint16_t brokerPort_ = 1883;
   bool brokerDiscovered_ = false;

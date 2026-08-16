@@ -118,6 +118,7 @@ file to enable or tune it:
 
 ```cpp
 inline constexpr bool kPirLightEnabled = true;
+inline constexpr bool kPirDashboardTestEnabled = true;
 inline constexpr uint8_t kPirPin = 32;
 inline constexpr uint8_t kPirActiveLevel = HIGH;
 inline constexpr char kPirTargetChannelId[] = "light-1";
@@ -137,6 +138,15 @@ timer immediately; if the PIR remains HIGH, automation waits for it to clear
 before accepting another motion event. PIR changes use the source `pir`, pass
 through the same `applyChannelState()` path as every other command, and are
 acknowledged to both control interfaces.
+
+The dashboard's **Test PIR** button publishes a test event to
+`adoptive/v1/devices/room-controller-01/automation/pir/test`. When
+`kPirDashboardTestEnabled` is `true`, the ESP32 feeds that event into the same
+timer and ownership logic as physical motion. The button does not directly
+change a relay. It is disabled whenever the dashboard broker or ESP32 is
+offline. Because the dashboard and MQTT broker are unauthenticated in this
+prototype, keep this test feature and the dashboard restricted to the trusted
+LAN.
 
 ### Code-only Wi-Fi
 

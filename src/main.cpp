@@ -96,6 +96,8 @@ void onMqttCommand(size_t channelIndex, bool state, const char* source,
   applyChannelState(channelIndex, state, source, commandId);
 }
 
+void onMqttPirTest() { pirLightAutomation.triggerTestMotion(); }
+
 void onRainMakerWrite(Device*, Param* param, const param_val_t value,
                       void* privateData, write_ctx_t*) {
   if (param == nullptr || privateData == nullptr ||
@@ -233,7 +235,7 @@ void setup() {
   pirLightAutomation.begin(relayBank, applyChannelState);
   sensorTelemetry.begin();
   pinMode(kResetButtonPin, INPUT_PULLUP);
-  localMqtt.begin(onMqttCommand);
+  localMqtt.begin(onMqttCommand, onMqttPirTest);
   initializeProvisioningName();
 
   Node node = RMaker.initNode(app_config::kNodeName);

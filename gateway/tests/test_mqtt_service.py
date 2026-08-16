@@ -112,6 +112,20 @@ class MqttServiceTests(unittest.TestCase):
         self.assertEqual(body["command_id"], command_id)
         self.assertTrue(command_id)
 
+    def test_pir_test_command_has_source_and_unique_id(self) -> None:
+        self.service.connected = True
+        publish_result = SimpleNamespace(rc=mqtt.MQTT_ERR_SUCCESS)
+        self.service.client.publish = Mock(return_value=publish_result)
+
+        command_id = self.service.test_pir_motion()
+
+        topic, payload = self.service.client.publish.call_args.args[:2]
+        body = json.loads(payload)
+        self.assertEqual(topic, f"{settings.device_topic}/automation/pir/test")
+        self.assertEqual(body["source"], "dashboard")
+        self.assertEqual(body["command_id"], command_id)
+        self.assertTrue(command_id)
+
     def test_unknown_channel_is_rejected(self) -> None:
         self.service.connected = True
         with self.assertRaises(KeyError):

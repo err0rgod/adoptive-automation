@@ -129,6 +129,21 @@ class MqttService:
             raise ConnectionError(f"MQTT publish failed with code {result.rc}")
         return command_id
 
+    def test_pir_motion(self) -> str:
+        if not self.connected:
+            raise ConnectionError("The dashboard is not connected to MQTT")
+
+        command_id = str(uuid.uuid4())
+        topic = f"{self.settings.device_topic}/automation/pir/test"
+        payload = json.dumps(
+            {"source": "dashboard", "command_id": command_id},
+            separators=(",", ":"),
+        )
+        result = self.client.publish(topic, payload, qos=1, retain=False)
+        if result.rc != mqtt.MQTT_ERR_SUCCESS:
+            raise ConnectionError(f"MQTT publish failed with code {result.rc}")
+        return command_id
+
     def _on_connect(
         self,
         client: mqtt.Client,

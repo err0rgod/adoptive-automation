@@ -12,9 +12,12 @@ class PirLightAutomation {
  public:
   void begin(RelayBank& relayBank, AutomationStateHandler stateHandler);
   void loop();
+  void triggerTestMotion();
   void handleExternalCommand(size_t channelIndex, const char* source);
 
  private:
+  void handleMotion(uint32_t now);
+
   RelayBank* relayBank_ = nullptr;
   AutomationStateHandler stateHandler_ = nullptr;
   int targetChannelIndex_ = -1;

@@ -27,9 +27,11 @@ String channelTopic(size_t channelIndex, const char* suffix) {
 
 }  // namespace
 
-void LocalMqtt::begin(MqttCommandHandler commandHandler) {
+void LocalMqtt::begin(MqttCommandHandler commandHandler,
+                      MqttPirTestHandler pirTestHandler) {
   instance_ = this;
   commandHandler_ = commandHandler;
+  pirTestHandler_ = pirTestHandler;
   client_.setCallback(staticMessageCallback);
   client_.setBufferSize(768);
 }
@@ -121,6 +123,8 @@ void LocalMqtt::subscribeToCommands() {
     const String topic = channelTopic(index, "/set");
     client_.subscribe(topic.c_str(), 1);
   }
+  const String pirTestTopic = deviceTopic("/automation/pir/test");
+  client_.subscribe(pirTestTopic.c_str(), 1);
 }
 
 void LocalMqtt::publishChannelState(size_t channelIndex, bool state,
@@ -210,12 +214,24 @@ void LocalMqtt::onMessage(char* topic, uint8_t* payload,
 
   JsonDocument document;
   const DeserializationError error = deserializeJson(document, body);
-  if (error || !document["state"].is<bool>()) {
+  if (error) {
     Serial.printf("Rejected invalid MQTT command on %s\n", topic);
     return;
   }
 
   const String topicString(topic);
+  if (topicString == deviceTopic("/automation/pir/test")) {
+    if (pirTestHandler_ != nullptr) {
+      pirTestHandler_();
+    }
+    return;
+  }
+
+  if (!document["state"].is<bool>()) {
+    Serial.printf("Rejected invalid MQTT command on %s\n", topic);
+    return;
+  }
+
   for (size_t index = 0; index < kChannelCount; ++index) {
     if (topicString == channelTopic(index, "/set")) {
       const bool state = document["state"].as<bool>();

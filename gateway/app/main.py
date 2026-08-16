@@ -88,6 +88,15 @@ async def set_channel(channel_id: str, command: ChannelCommand):
     return {"accepted": True, "command_id": command_id}
 
 
+@app.post("/api/automation/pir/test", status_code=202)
+async def test_pir_motion():
+    try:
+        command_id = mqtt_service.test_pir_motion()
+    except ConnectionError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return {"accepted": True, "command_id": command_id}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(socket: WebSocket):
     await hub.connect(socket)
@@ -97,4 +106,3 @@ async def websocket_endpoint(socket: WebSocket):
             await socket.receive_text()
     except WebSocketDisconnect:
         hub.disconnect(socket)
-

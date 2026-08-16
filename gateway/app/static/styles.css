@@ -133,6 +133,43 @@ h1 {
 
 .sensor-card.presence .presence-value { color: var(--accent-strong); }
 
+.automation-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.automation-copy {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.test-button {
+  min-width: 120px;
+  min-height: 46px;
+  padding: 11px 16px;
+  border: 1px solid #526274;
+  border-radius: 10px;
+  background: var(--control);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.test-button:hover:not(:disabled), .test-button:focus-visible {
+  border-color: var(--accent);
+}
+
+.test-button:focus-visible { outline: 3px solid #2a6b4b; outline-offset: 2px; }
+.test-button:disabled { cursor: not-allowed; opacity: 0.48; }
+
 .channel-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -215,6 +252,7 @@ footer {
   .status-panel { justify-content: flex-start; }
   .channel-grid { grid-template-columns: 1fr; }
   .sensor-grid { grid-template-columns: 1fr; }
+  .automation-panel { align-items: stretch; flex-direction: column; }
   .channel-card { min-height: 200px; }
   footer { align-items: flex-start; flex-direction: column; }
 }
