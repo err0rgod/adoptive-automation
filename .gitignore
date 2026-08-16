@@ -1,0 +1,15 @@
+.pio/
+.venv/
+.tmp-python/
+__pycache__/
+*.py[cod]
+.env
+.idea/
+.vscode/
+include/WifiSecrets.h
+
+# Legacy Arduino/AceButton reference material; not compiled by PlatformIO.
+AceButton-develop/
+ace_button/
+AceButton.h
+adoptive_automation.ino

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Adoptive Automation</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="page-header">
+        <div class="title-block">
+          <p class="eyebrow">ROOM CONTROLLER</p>
+          <h1>Adoptive Automation</h1>
+          <p class="subtitle">Lights and fans</p>
+        </div>
+        <div class="status-panel" aria-live="polite">
+          <span id="broker-status" class="badge offline">Broker offline</span>
+          <span id="device-status" class="badge offline">Device offline</span>
+        </div>
+      </header>
+
+      <section class="channel-grid" aria-label="Relay channels">
+        {% for channel in channels %}
+        <article class="channel-card" data-channel="{{ channel.id }}">
+          <div class="channel-heading">
+            <span class="kind-icon" aria-hidden="true">{{ "L" if channel.kind == "light" else "F" }}</span>
+            <div>
+              <p class="channel-kind">{{ channel.kind }}</p>
+              <h2>{{ channel.name }}</h2>
+            </div>
+          </div>
+          <button class="power-button" type="button" disabled aria-pressed="false" aria-label="Toggle {{ channel.name }}">
+            <span class="power-state">Unknown</span>
+          </button>
+          <p class="source">Waiting for device state</p>
+        </article>
+        {% endfor %}
+      </section>
+
+      <footer>
+        <span>Device: {{ device_id }}</span>
+        <span id="message">Connecting...</span>
+      </footer>
+    </main>
+    <script src="{{ url_for('static', path='/app.js') }}" defer></script>
+  </body>
+</html>
