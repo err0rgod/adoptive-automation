@@ -32,7 +32,7 @@ button { font: inherit; }
   padding: 44px 0 24px;
 }
 
-.page-header, footer, .channel-heading, .status-panel {
+.page-header, footer, .channel-heading, .status-panel, .sensor-heading {
   display: flex;
   align-items: center;
 }
@@ -80,6 +80,58 @@ h1 {
 
 .badge.online { border-color: var(--border-active); color: var(--accent-strong); }
 .badge.offline { color: var(--danger); }
+
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.sensor-card {
+  min-height: 150px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.sensor-card.available { border-color: #3b5368; }
+.sensor-card.presence { border-color: var(--border-active); background: var(--surface-active); }
+.sensor-heading { justify-content: space-between; gap: 16px; }
+
+.sensor-status {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sensor-card.available .sensor-status { color: var(--accent-strong); }
+
+.sensor-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0 0;
+}
+
+.sensor-values div {
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--control);
+}
+
+.sensor-values dt { color: var(--muted); font-size: 0.72rem; }
+.sensor-values dd { margin: 4px 0 0; font-size: 1.1rem; font-weight: 800; }
+
+.presence-value {
+  margin: 25px 0 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.sensor-card.presence .presence-value { color: var(--accent-strong); }
 
 .channel-grid {
   display: grid;
@@ -162,6 +214,7 @@ footer {
   .page-header { align-items: flex-start; flex-direction: column; }
   .status-panel { justify-content: flex-start; }
   .channel-grid { grid-template-columns: 1fr; }
+  .sensor-grid { grid-template-columns: 1fr; }
   .channel-card { min-height: 200px; }
   footer { align-items: flex-start; flex-direction: column; }
 }

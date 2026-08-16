@@ -38,6 +38,15 @@ class MqttService:
         self.connected = False
         self.device_online = False
         self.states = {channel.id: ChannelState() for channel in CHANNELS}
+        self.sensors: dict[str, Any] = {
+            "dht11": {
+                "available": False,
+                "temperature_c": None,
+                "humidity_percent": None,
+            },
+            "mmwave": {"available": False, "presence": None},
+            "uptime_ms": None,
+        }
         self.heartbeat: dict[str, Any] = {}
         self.client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
@@ -92,6 +101,7 @@ class MqttService:
             "broker_connected": self.connected,
             "device_online": self.device_online,
             "heartbeat": self.heartbeat,
+            "sensors": self.sensors,
             "channels": {
                 channel_id: asdict(state)
                 for channel_id, state in self.states.items()
@@ -136,6 +146,7 @@ class MqttService:
         client.subscribe(f"{self.settings.device_topic}/channels/+/state", qos=1)
         client.subscribe(f"{self.settings.device_topic}/availability", qos=1)
         client.subscribe(f"{self.settings.device_topic}/heartbeat", qos=0)
+        client.subscribe(f"{self.settings.device_topic}/sensors/state", qos=1)
         self._send_to_websockets({"type": "snapshot", "data": self.snapshot()})
 
     def _on_disconnect(
@@ -156,6 +167,7 @@ class MqttService:
         payload_text = message.payload.decode("utf-8", errors="replace")
         availability_topic = f"{self.settings.device_topic}/availability"
         heartbeat_topic = f"{self.settings.device_topic}/heartbeat"
+        sensor_topic = f"{self.settings.device_topic}/sensors/state"
 
         if message.topic == availability_topic:
             self.device_online = payload_text == "online"
@@ -164,6 +176,47 @@ class MqttService:
                 self.heartbeat = json.loads(payload_text)
             except json.JSONDecodeError:
                 logger.warning("Ignored malformed heartbeat: %s", payload_text)
+                return
+        elif message.topic == sensor_topic:
+            try:
+                payload = json.loads(payload_text)
+                dht11 = payload["dht11"]
+                mmwave = payload["mmwave"]
+                dht11_available = dht11["available"]
+                mmwave_available = mmwave["available"]
+                if not isinstance(dht11_available, bool) or not isinstance(
+                    mmwave_available, bool
+                ):
+                    raise ValueError("availability must be boolean")
+
+                temperature = dht11.get("temperature_c")
+                humidity = dht11.get("humidity_percent")
+                presence = mmwave.get("presence")
+                if dht11_available and (
+                    not self._is_number(temperature) or not self._is_number(humidity)
+                ):
+                    raise ValueError("available DHT11 values must be numbers")
+                if mmwave_available and not isinstance(presence, bool):
+                    raise ValueError("available mmWave presence must be boolean")
+
+                self.sensors = {
+                    "dht11": {
+                        "available": dht11_available,
+                        "temperature_c": float(temperature)
+                        if dht11_available
+                        else None,
+                        "humidity_percent": float(humidity)
+                        if dht11_available
+                        else None,
+                    },
+                    "mmwave": {
+                        "available": mmwave_available,
+                        "presence": presence if mmwave_available else None,
+                    },
+                    "uptime_ms": payload.get("uptime_ms"),
+                }
+            except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+                logger.warning("Ignored malformed sensor state: %s", payload_text)
                 return
         else:
             match = self._state_pattern.match(message.topic)
@@ -188,6 +241,10 @@ class MqttService:
                 return
 
         self._send_to_websockets({"type": "snapshot", "data": self.snapshot()})
+
+    @staticmethod
+    def _is_number(value: Any) -> bool:
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
 
     def _send_to_websockets(self, message: dict[str, Any]) -> None:
         if self.loop is not None and not self.loop.is_closed():

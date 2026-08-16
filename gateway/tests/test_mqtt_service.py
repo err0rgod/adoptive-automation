@@ -24,6 +24,58 @@ class MqttServiceTests(unittest.TestCase):
         self.assertEqual(len(snapshot["channels"]), 8)
         self.assertEqual(set(snapshot["channels"]), {item.id for item in CHANNELS})
 
+    def test_sensor_snapshot_defaults_to_unavailable(self) -> None:
+        sensors = self.service.snapshot()["sensors"]
+        self.assertIs(sensors["dht11"]["available"], False)
+        self.assertIsNone(sensors["dht11"]["temperature_c"])
+        self.assertIsNone(sensors["dht11"]["humidity_percent"])
+        self.assertIs(sensors["mmwave"]["available"], False)
+        self.assertIsNone(sensors["mmwave"]["presence"])
+
+    def test_sensor_state_message_updates_snapshot(self) -> None:
+        message = SimpleNamespace(
+            topic=f"{settings.device_topic}/sensors/state",
+            payload=json.dumps(
+                {
+                    "dht11": {
+                        "available": True,
+                        "temperature_c": 24.5,
+                        "humidity_percent": 61.0,
+                    },
+                    "mmwave": {"available": True, "presence": True},
+                    "uptime_ms": 4321,
+                }
+            ).encode(),
+        )
+
+        self.service._on_message(self.service.client, None, message)
+
+        sensors = self.service.snapshot()["sensors"]
+        self.assertEqual(sensors["dht11"]["temperature_c"], 24.5)
+        self.assertEqual(sensors["dht11"]["humidity_percent"], 61.0)
+        self.assertIs(sensors["mmwave"]["presence"], True)
+        self.assertEqual(sensors["uptime_ms"], 4321)
+
+    def test_malformed_sensor_state_is_ignored(self) -> None:
+        before = self.service.snapshot()["sensors"]
+        message = SimpleNamespace(
+            topic=f"{settings.device_topic}/sensors/state",
+            payload=json.dumps(
+                {
+                    "dht11": {
+                        "available": True,
+                        "temperature_c": "hot",
+                        "humidity_percent": 50,
+                    },
+                    "mmwave": {"available": False, "presence": None},
+                }
+            ).encode(),
+        )
+
+        self.service._on_message(self.service.client, None, message)
+
+        self.assertEqual(self.service.snapshot()["sensors"], before)
+
     def test_channel_state_message_updates_authoritative_snapshot(self) -> None:
         topic = f"{settings.device_topic}/channels/light-1/state"
         message = SimpleNamespace(
@@ -68,4 +120,3 @@ class MqttServiceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

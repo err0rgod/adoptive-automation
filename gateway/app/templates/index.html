@@ -20,6 +20,40 @@
         </div>
       </header>
 
+      <section class="sensor-grid" aria-label="Room sensors">
+        <article class="sensor-card" id="dht11-card">
+          <div class="sensor-heading">
+            <div>
+              <p class="channel-kind">Environment</p>
+              <h2>DHT11</h2>
+            </div>
+            <span class="sensor-status" id="dht11-status">N/A</span>
+          </div>
+          <dl class="sensor-values">
+            <div>
+              <dt>Temperature</dt>
+              <dd id="temperature-value">N/A</dd>
+            </div>
+            <div>
+              <dt>Humidity</dt>
+              <dd id="humidity-value">N/A</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="sensor-card" id="mmwave-card">
+          <div class="sensor-heading">
+            <div>
+              <p class="channel-kind">Occupancy</p>
+              <h2>mmWave</h2>
+            </div>
+            <span class="sensor-status" id="mmwave-status">N/A</span>
+          </div>
+          <p class="presence-value" id="presence-value">N/A</p>
+          <p class="source">Digital presence input</p>
+        </article>
+      </section>
+
       <section class="channel-grid" aria-label="Relay channels">
         {% for channel in channels %}
         <article class="channel-card" data-channel="{{ channel.id }}">

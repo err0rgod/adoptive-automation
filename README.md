@@ -1,20 +1,23 @@
 # Adoptive Automation
 
-MVP 1 is an eight-channel ESP32 room controller with two synchronized control
-paths:
+The current prototype is an eight-channel ESP32 room controller with two
+synchronized control paths and optional read-only room sensors:
 
 - ESP RainMaker exposes six lights and two fans to its phone app and Google Home.
 - A local FastAPI dashboard controls the same channels through Mosquitto MQTT.
+- A DHT11 and digital-output mmWave module can report environment and presence
+  telemetry without participating in automation.
 
 The ESP32 is authoritative for physical output state. Every accepted command is
 applied once, reported to RainMaker, and acknowledged to the local dashboard.
-All channels boot OFF. PIR sensing, wall switches, learning, and AI are not part
-of this milestone.
+All channels boot OFF. Wall switches, learning, and AI are not part of this
+milestone. Sensor values are observations only and never change relay outputs.
 
 ## Project map
 
 - `src/` and `include/`: PlatformIO firmware.
-- `gateway/`: FastAPI dashboard, MQTT bridge, and development broker config.
+- `gateway/`: laptop-hosted FastAPI dashboard, MQTT bridge, and development
+  broker config. The dashboard does not run on the ESP32.
 - `partitions_mvp.csv`: 4 MB flash layout with one large app and RainMaker's
   credential partition at `0x3D0000`.
 - `adoptive_automation.ino` and the AceButton folders: legacy reference only;
@@ -69,6 +72,42 @@ pulse.
 
 The local MQTT broker is discovered via `_mqtt._tcp` mDNS. If discovery fails,
 set the gateway PC's LAN IP in `include/AppConfig.h` and rebuild.
+
+### Optional sensors
+
+Sensor configuration is centralized in `include/SensorConfig.h`. When a sensor
+is disabled or unavailable, RainMaker and the local dashboard display `N/A`.
+Sensor telemetry is retained under the MQTT topic
+`adoptive/v1/devices/room-controller-01/sensors/state`.
+
+DHT11 wiring:
+
+| DHT11 pin | Connection |
+| --- | --- |
+| VCC | ESP32 3.3 V |
+| GND | ESP32 GND |
+| DATA | GPIO 27, with a 4.7-10 kOhm pull-up to 3.3 V |
+
+DHT11 probing is enabled by default. A valid reading marks it available; three
+consecutive failures change its temperature and humidity back to `N/A`.
+
+The mmWave integration expects a module with a simple active-high digital OUT:
+
+| mmWave pin | Connection |
+| --- | --- |
+| GND | ESP32 GND |
+| OUT | GPIO 33 |
+| Power | Use the voltage required by the specific module |
+
+Confirm that OUT never exceeds 3.3 V before connecting it to the ESP32. Set
+`kMmWaveEnabled` to `true` only after wiring. A digital OUT cannot identify its
+module automatically, so the enable flag is its availability declaration. UART
+modules such as the LD2410 require a different integration and must not be
+connected using this pinout without checking their documentation.
+
+RainMaker exposes a read-only `Room Sensors` device with `Temperature`,
+`Humidity`, and `Presence` string parameters. The local dashboard displays the
+same authoritative MQTT snapshot and runs on the gateway laptop at port 8000.
 
 ### Code-only Wi-Fi
 

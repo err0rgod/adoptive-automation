@@ -31,7 +31,7 @@ void LocalMqtt::begin(MqttCommandHandler commandHandler) {
   instance_ = this;
   commandHandler_ = commandHandler;
   client_.setCallback(staticMessageCallback);
-  client_.setBufferSize(512);
+  client_.setBufferSize(768);
 }
 
 void LocalMqtt::loop() {
@@ -139,6 +139,37 @@ void LocalMqtt::publishChannelState(size_t channelIndex, bool state,
   char payload[256];
   serializeJson(document, payload, sizeof(payload));
   const String topic = channelTopic(channelIndex, "/state");
+  client_.publish(topic.c_str(), payload, true);
+}
+
+void LocalMqtt::publishSensorState(const SensorSnapshot& snapshot) {
+  if (!client_.connected()) {
+    return;
+  }
+
+  JsonDocument document;
+  JsonObject dht11 = document["dht11"].to<JsonObject>();
+  dht11["available"] = snapshot.dht11Available;
+  if (snapshot.dht11Available) {
+    dht11["temperature_c"] = snapshot.temperatureC;
+    dht11["humidity_percent"] = snapshot.humidityPercent;
+  } else {
+    dht11["temperature_c"] = nullptr;
+    dht11["humidity_percent"] = nullptr;
+  }
+
+  JsonObject mmWave = document["mmwave"].to<JsonObject>();
+  mmWave["available"] = snapshot.mmWaveAvailable;
+  if (snapshot.mmWaveAvailable) {
+    mmWave["presence"] = snapshot.presenceDetected;
+  } else {
+    mmWave["presence"] = nullptr;
+  }
+  document["uptime_ms"] = millis();
+
+  char payload[384];
+  serializeJson(document, payload, sizeof(payload));
+  const String topic = deviceTopic("/sensors/state");
   client_.publish(topic.c_str(), payload, true);
 }
 

@@ -5,6 +5,7 @@
 #include <WiFi.h>
 
 #include "ChannelConfig.h"
+#include "SensorTelemetry.h"
 
 using MqttCommandHandler =
     void (*)(size_t channelIndex, bool state, const char* source,
@@ -16,6 +17,7 @@ class LocalMqtt {
   void loop();
   void publishChannelState(size_t channelIndex, bool state,
                            const char* source, const char* commandId = "");
+  void publishSensorState(const SensorSnapshot& snapshot);
   bool connected();
 
  private:

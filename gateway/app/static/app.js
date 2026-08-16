@@ -4,6 +4,13 @@ const cards = new Map(
 const brokerBadge = document.querySelector("#broker-status");
 const deviceBadge = document.querySelector("#device-status");
 const message = document.querySelector("#message");
+const dht11Card = document.querySelector("#dht11-card");
+const dht11Status = document.querySelector("#dht11-status");
+const temperatureValue = document.querySelector("#temperature-value");
+const humidityValue = document.querySelector("#humidity-value");
+const mmWaveCard = document.querySelector("#mmwave-card");
+const mmWaveStatus = document.querySelector("#mmwave-status");
+const presenceValue = document.querySelector("#presence-value");
 let snapshot = null;
 
 function setBadge(element, online, onlineText, offlineText) {
@@ -16,6 +23,27 @@ function render(data) {
   snapshot = data;
   setBadge(brokerBadge, data.broker_connected, "Broker online", "Broker offline");
   setBadge(deviceBadge, data.device_online, "Device online", "Device offline");
+
+  const dht11 = data.sensors?.dht11;
+  const dht11Available = dht11?.available === true;
+  dht11Card.classList.toggle("available", dht11Available);
+  dht11Status.textContent = dht11Available ? "Available" : "N/A";
+  temperatureValue.textContent = dht11Available
+    ? `${Number(dht11.temperature_c).toFixed(1)} C`
+    : "N/A";
+  humidityValue.textContent = dht11Available
+    ? `${Number(dht11.humidity_percent).toFixed(1)} %`
+    : "N/A";
+
+  const mmWave = data.sensors?.mmwave;
+  const mmWaveAvailable = mmWave?.available === true;
+  const presence = mmWaveAvailable && mmWave.presence === true;
+  mmWaveCard.classList.toggle("available", mmWaveAvailable);
+  mmWaveCard.classList.toggle("presence", presence);
+  mmWaveStatus.textContent = mmWaveAvailable ? "Available" : "N/A";
+  presenceValue.textContent = mmWaveAvailable
+    ? (presence ? "Presence detected" : "Room clear")
+    : "N/A";
 
   for (const [channelId, card] of cards) {
     const channel = data.channels[channelId];

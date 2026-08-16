@@ -3,8 +3,10 @@
 ## Current milestone
 
 MVP 1 provides eight synchronized relay controls through local MQTT/dashboard
-and ESP RainMaker/Google Home. Do not add PIR, wall inputs, persistence,
-learning, routines, or external AI until this milestone is physically verified.
+and ESP RainMaker/Google Home. Optional DHT11 and digital mmWave inputs are
+read-only telemetry and must not drive automation. Do not add wall inputs,
+persistence, learning, routines, or external AI until relay control is
+physically verified.
 
 ## Components
 
@@ -16,6 +18,8 @@ learning, routines, or external AI until this milestone is physically verified.
   and heartbeat.
 - `src/main.cpp`: unified state transition, RainMaker devices/provisioning, and
   reset button.
+- `include/SensorConfig.h` and `src/SensorTelemetry.cpp`: optional DHT11 and
+  digital mmWave pin configuration, availability, and read-only sampling.
 - `gateway/app/`: FastAPI UI, MQTT client, WebSocket state fan-out, and mDNS
   broker advertisement.
 - `gateway/app/config.py`: dashboard copy of channel IDs/names/types. Keep it in
@@ -56,9 +60,8 @@ command and reconnect.
 
 ## Planned increments
 
-1. MVP 2: PIR telemetry and event persistence, without automation.
+1. MVP 2: persist existing sensor telemetry and events, without automation.
 2. MVP 3: entry-light learner in shadow mode.
 3. MVP 4: user-approved deterministic automation and correction tracking.
-4. MVP 5: short routines, optional external AI rule advisor, and mmWave/context
-   sensors.
-
+4. MVP 5: short routines, optional external AI rule advisor, and additional
+   context sensors.

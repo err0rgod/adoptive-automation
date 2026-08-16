@@ -8,6 +8,7 @@
 #include "ChannelConfig.h"
 #include "LocalMqtt.h"
 #include "RelayBank.h"
+#include "SensorTelemetry.h"
 
 #if __has_include("WifiSecrets.h")
 #include "WifiSecrets.h"
@@ -26,7 +27,9 @@ namespace {
 
 RelayBank relayBank;
 LocalMqtt localMqtt;
+SensorTelemetry sensorTelemetry;
 Device* rainMakerDevices[kChannelCount]{};
+Device* rainMakerSensorDevice = nullptr;
 char provisioningName[20]{};
 constexpr uint8_t kResetButtonPin = 0;
 
@@ -34,6 +37,30 @@ void reportAllStatesToMqtt() {
   for (size_t index = 0; index < kChannelCount; ++index) {
     localMqtt.publishChannelState(index, relayBank.state(index), "boot");
   }
+  localMqtt.publishSensorState(sensorTelemetry.snapshot());
+}
+
+void reportSensorStateToRainMaker(const SensorSnapshot& snapshot) {
+  if (rainMakerSensorDevice == nullptr) {
+    return;
+  }
+
+  char temperature[16] = "N/A";
+  char humidity[16] = "N/A";
+  const char* presence = "N/A";
+  if (snapshot.dht11Available) {
+    std::snprintf(temperature, sizeof(temperature), "%.1f C",
+                  snapshot.temperatureC);
+    std::snprintf(humidity, sizeof(humidity), "%.1f %%",
+                  snapshot.humidityPercent);
+  }
+  if (snapshot.mmWaveAvailable) {
+    presence = snapshot.presenceDetected ? "Detected" : "Clear";
+  }
+
+  rainMakerSensorDevice->updateAndReportParam("Temperature", temperature);
+  rainMakerSensorDevice->updateAndReportParam("Humidity", humidity);
+  rainMakerSensorDevice->updateAndReportParam("Presence", presence);
 }
 
 void reportStateToRainMaker(size_t channelIndex, bool state) {
@@ -99,6 +126,25 @@ void initializeRainMakerDevices(Node& node) {
     node.addDevice(*device);
     rainMakerDevices[index] = device;
   }
+}
+
+void initializeRainMakerSensorDevice(Node& node) {
+  auto* device =
+      new Device("Room Sensors", "adoptive.device.room-sensors", nullptr);
+  if (device == nullptr || device->getDeviceHandle() == nullptr) {
+    Serial.println("Failed to create RainMaker sensor device");
+    return;
+  }
+
+  device->addNameParam();
+  device->addParam(Param("Temperature", "adoptive.param.temperature",
+                         value("N/A"), PROP_FLAG_READ));
+  device->addParam(Param("Humidity", "adoptive.param.humidity", value("N/A"),
+                         PROP_FLAG_READ));
+  device->addParam(Param("Presence", "adoptive.param.presence", value("N/A"),
+                         PROP_FLAG_READ));
+  node.addDevice(*device);
+  rainMakerSensorDevice = device;
 }
 
 void onSystemEvent(arduino_event_t* event) {
@@ -177,12 +223,14 @@ void setup() {
   Serial.printf("\nStarting %s\n", app_config::kProjectName);
 
   relayBank.begin();
+  sensorTelemetry.begin();
   pinMode(kResetButtonPin, INPUT_PULLUP);
   localMqtt.begin(onMqttCommand);
   initializeProvisioningName();
 
   Node node = RMaker.initNode(app_config::kNodeName);
   initializeRainMakerDevices(node);
+  initializeRainMakerSensorDevice(node);
   // OTA, schedules, timezone, scenes, and remote system services are omitted
   // from MVP 1 to retain flash headroom on the 4 MB WROOM-32U module.
   RMaker.start();
@@ -200,6 +248,12 @@ void loop() {
     reportAllStatesToMqtt();
   }
   mqttWasConnected = mqttIsConnected;
+
+  if (sensorTelemetry.poll()) {
+    const auto& snapshot = sensorTelemetry.snapshot();
+    reportSensorStateToRainMaker(snapshot);
+    localMqtt.publishSensorState(snapshot);
+  }
 
   serviceResetButton();
 
