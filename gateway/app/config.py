@@ -26,7 +26,7 @@ CHANNEL_BY_ID = {channel.id: channel for channel in CHANNELS}
 
 @dataclass(frozen=True, slots=True)
 class Settings:
-    mqtt_host: str = os.getenv("ADOPTIVE_MQTT_HOST", "10.141.139.247")
+    mqtt_host: str = os.getenv("ADOPTIVE_MQTT_HOST", "10.144.6.247")
     mqtt_port: int = int(os.getenv("ADOPTIVE_MQTT_PORT", "1884"))
     device_id: str = os.getenv("ADOPTIVE_DEVICE_ID", "room-controller-01")
     web_host: str = os.getenv("ADOPTIVE_WEB_HOST", "0.0.0.0")

@@ -11,7 +11,7 @@ inline constexpr char kDeviceId[] = "room-controller-01";
 // The gateway advertises its broker through mDNS. This address is only the
 // fallback when mDNS discovery is unavailable. Change it to the gateway PC's
 // LAN address before hardware testing.
-inline constexpr char kMqttFallbackHost[] = "10.141.139.247";
+inline constexpr char kMqttFallbackHost[] = "10.144.6.247";
 inline constexpr uint16_t kMqttFallbackPort = 1884;
 inline constexpr char kMqttBaseTopic[] = "adoptive/v1";
 
