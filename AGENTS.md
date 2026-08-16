@@ -4,9 +4,9 @@
 
 MVP 1 provides eight synchronized relay controls through local MQTT/dashboard
 and ESP RainMaker/Google Home. Optional DHT11 and digital mmWave inputs are
-read-only telemetry and must not drive automation. Do not add wall inputs,
-persistence, learning, routines, or external AI until relay control is
-physically verified.
+read-only telemetry. A compile-time optional PIR may control one configured
+light with a user-override-safe timer. Do not add wall inputs, persistence,
+learning, routines, or external AI until relay control is physically verified.
 
 ## Components
 
@@ -20,6 +20,8 @@ physically verified.
   reset button.
 - `include/SensorConfig.h` and `src/SensorTelemetry.cpp`: optional DHT11 and
   digital mmWave pin configuration, availability, and read-only sampling.
+- `include/AutomationConfig.example.h` and `src/PirLightAutomation.cpp`:
+  optional PIR target/timing configuration and user-override-safe ownership.
 - `gateway/app/`: FastAPI UI, MQTT client, WebSocket state fan-out, and mDNS
   broker advertisement.
 - `gateway/app/config.py`: dashboard copy of channel IDs/names/types. Keep it in
@@ -37,12 +39,14 @@ physically verified.
 4. Set the inactive GPIO level before `pinMode(OUTPUT)` to prevent relay pulses.
 5. Never treat RainMaker, dashboard, or future automation as separate state
    owners.
-6. Keep standard RainMaker light/fan device types for Google Home discovery.
-7. Never commit Wi-Fi, RainMaker account, or future MQTT credentials.
-8. Do not expose the anonymous development broker or unauthenticated dashboard
+6. PIR auto-off is armed only when PIR turned an OFF light ON. Any external
+   command to that channel cancels PIR ownership.
+7. Keep standard RainMaker light/fan device types for Google Home discovery.
+8. Never commit Wi-Fi, RainMaker account, or future MQTT credentials.
+9. Do not expose the anonymous development broker or unauthenticated dashboard
    outside a trusted LAN.
-9. The WROOM-32U has 4 MB flash. Recheck image size after every firmware feature.
-10. A full-chip erase destroys RainMaker claiming data in `fctry`.
+10. The WROOM-32U has 4 MB flash. Recheck image size after every firmware feature.
+11. A full-chip erase destroys RainMaker claiming data in `fctry`.
 
 ## Verification commands
 

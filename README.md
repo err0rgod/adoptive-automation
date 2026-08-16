@@ -109,6 +109,35 @@ RainMaker exposes a read-only `Room Sensors` device with `Temperature`,
 `Humidity`, and `Presence` string parameters. The local dashboard displays the
 same authoritative MQTT snapshot and runs on the gateway laptop at port 8000.
 
+### Optional PIR light timer
+
+The PIR automation is disabled by default. Its settings live in the local,
+Git-ignored `include/AutomationConfig.h`. The committed
+`include/AutomationConfig.example.h` is the safe template. Edit only the local
+file to enable or tune it:
+
+```cpp
+inline constexpr bool kPirLightEnabled = true;
+inline constexpr uint8_t kPirPin = 32;
+inline constexpr uint8_t kPirActiveLevel = HIGH;
+inline constexpr char kPirTargetChannelId[] = "light-1";
+inline constexpr uint32_t kPirOnDurationMs = 2UL * 60UL * 1000UL;
+inline constexpr uint32_t kPirWarmupMs = 60UL * 1000UL;
+```
+
+Build and upload after changing this compile-time configuration. The default
+wiring is PIR OUT to GPIO 32 and PIR GND to ESP32 GND. Power the PIR according
+to its own module specification and confirm that OUT never exceeds 3.3 V.
+
+After the warm-up period, motion turns Light 1 ON. The light turns OFF two
+minutes after the PIR output last reported motion. The timer is armed only when
+the PIR changed the light from OFF to ON, so it never turns off a light that was
+already switched on manually. A RainMaker or dashboard command cancels the PIR
+timer immediately; if the PIR remains HIGH, automation waits for it to clear
+before accepting another motion event. PIR changes use the source `pir`, pass
+through the same `applyChannelState()` path as every other command, and are
+acknowledged to both control interfaces.
+
 ### Code-only Wi-Fi
 
 RainMaker provisioning remains the safe default. For a fixed development

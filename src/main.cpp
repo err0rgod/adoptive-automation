@@ -7,6 +7,7 @@
 #include "AppConfig.h"
 #include "ChannelConfig.h"
 #include "LocalMqtt.h"
+#include "PirLightAutomation.h"
 #include "RelayBank.h"
 #include "SensorTelemetry.h"
 
@@ -28,6 +29,7 @@ namespace {
 RelayBank relayBank;
 LocalMqtt localMqtt;
 SensorTelemetry sensorTelemetry;
+PirLightAutomation pirLightAutomation;
 Device* rainMakerDevices[kChannelCount]{};
 Device* rainMakerSensorDevice = nullptr;
 char provisioningName[20]{};
@@ -72,7 +74,12 @@ void reportStateToRainMaker(size_t channelIndex, bool state) {
 
 void applyChannelState(size_t channelIndex, bool state, const char* source,
                        const char* commandId) {
-  if (channelIndex >= kChannelCount || !relayBank.setState(channelIndex, state)) {
+  if (channelIndex >= kChannelCount) {
+    return;
+  }
+
+  pirLightAutomation.handleExternalCommand(channelIndex, source);
+  if (!relayBank.setState(channelIndex, state)) {
     return;
   }
 
@@ -223,6 +230,7 @@ void setup() {
   Serial.printf("\nStarting %s\n", app_config::kProjectName);
 
   relayBank.begin();
+  pirLightAutomation.begin(relayBank, applyChannelState);
   sensorTelemetry.begin();
   pinMode(kResetButtonPin, INPUT_PULLUP);
   localMqtt.begin(onMqttCommand);
@@ -256,6 +264,7 @@ void loop() {
   }
 
   serviceResetButton();
+  pirLightAutomation.loop();
 
   delay(5);
 }
