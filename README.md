@@ -99,6 +99,21 @@ credentials stored in NVS. The provisioning hotspot is named `ADOPT_xxxxxx` and
 the prototype Proof of Possession is `adopt123`; change it in
 `include/AppConfig.h` before using a device outside the bench.
 
+RainMaker enrollment has two separate trust steps:
+
+1. Host claiming writes the device identity and certificates into the `fctry`
+   flash partition. The ESP32 uses those certificates to authenticate to the
+   RainMaker cloud; there is no RainMaker API key in this project's source.
+2. The QR code starts a local SoftAP provisioning session. It identifies the
+   provisioning service, transport, protocol version, and PoP. It does not
+   contain the RainMaker account password, a cloud API key, or the target Wi-Fi
+   password. The signed-in RainMaker app supplies Wi-Fi credentials during the
+   provisioning session and associates the device with the user's account.
+
+Enabling code-only Wi-Fi skips only the second step's Wi-Fi setup flow.
+`RMaker.start()` still runs, and the claimed ESP32 continues to authenticate to
+RainMaker with the certificates already stored in `fctry`.
+
 For public RainMaker on classic ESP32:
 
 1. Upload the firmware.
