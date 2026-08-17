@@ -4,97 +4,170 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Adoptive Automation</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v=ai-demo-1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v=console-1">
   </head>
   <body>
     <main class="shell">
+      <div class="crop-marks" aria-hidden="true">
+        <svg class="tick-tl" viewBox="0 0 20 20" fill="none">
+          <path d="M 2 18 L 2 2 L 18 2" stroke="currentColor" stroke-width="1"/>
+        </svg>
+        <svg class="tick-br" viewBox="0 0 20 20" fill="none">
+          <path d="M 2 18 L 18 18 L 18 2" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+
+      <p class="stamp">SEC-01 // ROOM CONSOLE</p>
+
       <header class="page-header">
         <div class="title-block">
-          <p class="eyebrow">ROOM CONTROLLER</p>
-          <h1>Adoptive Automation</h1>
-          <p class="subtitle">Lights and fans</p>
+          <h1>The room, as a console.</h1>
+          <p class="subtitle">Eight acknowledged relays, optional DHT11 and mmWave telemetry, and a PIR timer that never owns a light after you take it back.</p>
         </div>
         <div class="status-panel" aria-live="polite">
+          <span class="live-badge">LIVE MQTT // ESP32 AUTHORITATIVE</span>
           <span id="broker-status" class="badge offline">Broker offline</span>
           <span id="device-status" class="badge offline">Device offline</span>
         </div>
       </header>
 
-      <section class="sensor-grid" aria-label="Room sensors">
-        <article class="sensor-card" id="dht11-card">
-          <div class="sensor-heading">
-            <div>
-              <p class="channel-kind">Environment</p>
-              <h2>DHT11</h2>
-            </div>
-            <span class="sensor-status" id="dht11-status">N/A</span>
-          </div>
-          <dl class="sensor-values">
-            <div>
-              <dt>Temperature</dt>
-              <dd id="temperature-value">N/A</dd>
-            </div>
-            <div>
-              <dt>Humidity</dt>
-              <dd id="humidity-value">N/A</dd>
-            </div>
-          </dl>
-        </article>
+      <aside id="ip-warning" class="warning-banner" role="status" hidden></aside>
 
-        <article class="sensor-card" id="mmwave-card">
-          <div class="sensor-heading">
-            <div>
-              <p class="channel-kind">Occupancy</p>
-              <h2>mmWave</h2>
-            </div>
-            <span class="sensor-status" id="mmwave-status">N/A</span>
-          </div>
-          <p class="presence-value" id="presence-value">N/A</p>
-          <p class="source">Digital presence input</p>
+      <section class="kpi-grid" aria-label="Live snapshot">
+        <article class="kpi-card sense">
+          <p class="stamp">DEVICE</p>
+          <p class="kpi-value" id="kpi-device-value">OFFLINE</p>
+          <p class="kpi-hint" id="kpi-device-hint">waiting</p>
+          <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true">
+            <path id="kpi-device-spark" d=""></path>
+          </svg>
+        </article>
+        <article class="kpi-card act">
+          <p class="stamp">CHANNELS ON</p>
+          <p class="kpi-value" id="kpi-channels-value">0 / 8</p>
+          <p class="kpi-hint" id="kpi-channels-hint">lights and fans</p>
+          <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true">
+            <path id="kpi-channels-spark" d=""></path>
+          </svg>
+        </article>
+        <article class="kpi-card sense">
+          <p class="stamp">TEMPERATURE</p>
+          <p class="kpi-value" id="kpi-temp-value">N/A</p>
+          <p class="kpi-hint" id="kpi-temp-hint">DHT11 session</p>
+          <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true">
+            <path id="kpi-temp-spark" d=""></path>
+          </svg>
+        </article>
+        <article class="kpi-card sense">
+          <p class="stamp">ACK LATENCY</p>
+          <p class="kpi-value" id="kpi-ack-value">N/A</p>
+          <p class="kpi-hint" id="kpi-ack-hint">dashboard round-trip</p>
+          <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true">
+            <path id="kpi-ack-spark" d=""></path>
+          </svg>
         </article>
       </section>
 
+      <div class="workspace">
+        <section class="panel" aria-label="Relay channels">
+          <div class="panel-head">
+            <p class="stamp">RELAYS // CONTROL</p>
+            <p class="stamp">ACK REQUIRED</p>
+          </div>
+          <div class="panel-body">
+            <div class="channel-grid">
+              {% for channel in channels %}
+              <article class="channel-card" data-channel="{{ channel.id }}">
+                <div class="channel-heading">
+                  <span class="kind-icon" aria-hidden="true">{{ "L" if channel.kind == "light" else "F" }}</span>
+                  <div>
+                    <p class="channel-kind">{{ channel.kind }}</p>
+                    <h2>{{ channel.name }}</h2>
+                  </div>
+                </div>
+                <button class="power-button" type="button" disabled aria-pressed="false" aria-label="Toggle {{ channel.name }}">
+                  <span class="power-state">Unknown</span>
+                </button>
+                <p class="source">Waiting for device state</p>
+                <p class="channel-diagnostic">No acknowledgement yet</p>
+              </article>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+
+        <div class="side-stack">
+          <article class="panel climate-panel" id="dht11-card">
+            <div class="panel-head">
+              <p class="stamp">CLIMATE // NOW</p>
+              <span class="sensor-status" id="dht11-status">N/A</span>
+            </div>
+            <div class="panel-body">
+              <div class="gauge-wrap">
+                <svg class="gauge" viewBox="0 0 200 120" aria-hidden="true">
+                  <path class="gauge-band gauge-good" d="M 20 110 A 80 80 0 0 1 70 38"></path>
+                  <path class="gauge-band gauge-mid" d="M 70 38 A 80 80 0 0 1 130 38"></path>
+                  <path class="gauge-band gauge-high" d="M 130 38 A 80 80 0 0 1 180 110"></path>
+                  <g id="humidity-needle" transform="translate(100 110) rotate(0)">
+                    <line class="gauge-needle" x1="0" y1="0" x2="-72" y2="0"></line>
+                    <circle class="gauge-hub" r="3.5"></circle>
+                  </g>
+                </svg>
+                <div class="gauge-readout na" id="humidity-readout">
+                  <span id="humidity-value">N/A</span>
+                  <span id="humidity-band">UNAVAILABLE</span>
+                </div>
+              </div>
+              <p class="gauge-caption">0–40 dry · 41–70 comfort · 71+ humid</p>
+              <p class="temp-readout">Temp <span id="temperature-value">N/A</span></p>
+            </div>
+          </article>
+
+          <article class="panel occupancy-panel" id="mmwave-card">
+            <div class="panel-head">
+              <p class="stamp">OCCUPANCY // NOW</p>
+              <span class="sensor-status" id="mmwave-status">N/A</span>
+            </div>
+            <div class="panel-body presence-stage">
+              <div>
+                <div class="presence-ring" aria-hidden="true">MW</div>
+                <p class="presence-value" id="presence-value">N/A</p>
+                <p class="presence-copy">Digital mmWave input. Not a 7-day heatmap.</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+
       <section class="automation-panel" aria-labelledby="automation-title">
         <div>
-          <p class="channel-kind">Automation test</p>
-          <h2 id="automation-title">PIR motion</h2>
-          <p class="automation-copy">Simulates motion through the ESP32 timer for Light 1.</p>
+          <p class="stamp">PIR // LIGHT 1</p>
+          <h2 id="automation-title">Motion timer test</h2>
+          <p class="automation-copy">Sends a simulated PIR edge. The ESP32 arms auto-off only if Light 1 is currently OFF.</p>
         </div>
-        <button id="pir-test-button" class="test-button" type="button" disabled>
+        <button id="pir-test-button" class="test-button act" type="button" disabled>
           Test PIR
         </button>
       </section>
 
-      <div class="relay-heading">
-        <p class="channel-kind">Acknowledged controls</p>
-        <h2>Relay test and control</h2>
-        <p class="automation-copy">Toggle one channel at a time and confirm the ESP32 acknowledgement below it.</p>
-      </div>
-
-      <section class="channel-grid" aria-label="Relay channels">
-        {% for channel in channels %}
-        <article class="channel-card" data-channel="{{ channel.id }}">
-          <div class="channel-heading">
-            <span class="kind-icon" aria-hidden="true">{{ "L" if channel.kind == "light" else "F" }}</span>
-            <div>
-              <p class="channel-kind">{{ channel.kind }}</p>
-              <h2>{{ channel.name }}</h2>
-            </div>
-          </div>
-          <button class="power-button" type="button" disabled aria-pressed="false" aria-label="Toggle {{ channel.name }}">
-            <span class="power-state">Unknown</span>
-          </button>
-          <p class="source">Waiting for device state</p>
-          <p class="channel-diagnostic">No acknowledgement yet</p>
-        </article>
-        {% endfor %}
+      <section class="panel log-panel" aria-labelledby="event-log-title">
+        <div class="panel-head">
+          <p class="stamp" id="event-log-title">EVENT LOG // LIVE</p>
+          <p class="stamp">SESSION</p>
+        </div>
+        <ul class="log-list" id="event-log">
+          <li class="empty">Waiting for live events</li>
+        </ul>
       </section>
 
       <section class="ai-panel" aria-labelledby="ai-title">
         <div class="ai-heading">
-          <div>
-            <p class="channel-kind">Read-only preview</p>
-            <h2 id="ai-title">AI Insights</h2>
+          <div class="panel-body">
+            <p class="stamp">AI // READ-ONLY</p>
+            <h2 id="ai-title">Insights</h2>
             <p class="automation-copy">Analyzes the live snapshot but cannot operate relays.</p>
           </div>
           <div class="ai-actions">
@@ -113,13 +186,10 @@
         </div>
       </section>
 
-      <aside id="ip-warning" class="warning-banner" role="status" hidden></aside>
-
       <section class="diagnostics-panel" aria-labelledby="diagnostics-title">
         <div class="section-heading">
           <div>
-            <p class="channel-kind">Live controller health</p>
-            <h2 id="diagnostics-title">Diagnostics</h2>
+            <p class="stamp" id="diagnostics-title">DIAGNOSTICS // HEALTH</p>
           </div>
           <span id="heartbeat-health" class="sensor-status">Waiting</span>
         </div>
@@ -140,6 +210,6 @@
         <span id="message">Connecting...</span>
       </footer>
     </main>
-    <script src="{{ url_for('static', path='/app.js') }}?v=ai-demo-1" defer></script>
+    <script src="{{ url_for('static', path='/app.js') }}?v=console-1" defer></script>
   </body>
 </html>

@@ -8,6 +8,9 @@ const dht11Card = document.querySelector("#dht11-card");
 const dht11Status = document.querySelector("#dht11-status");
 const temperatureValue = document.querySelector("#temperature-value");
 const humidityValue = document.querySelector("#humidity-value");
+const humidityBand = document.querySelector("#humidity-band");
+const humidityReadout = document.querySelector("#humidity-readout");
+const humidityNeedle = document.querySelector("#humidity-needle");
 const mmWaveCard = document.querySelector("#mmwave-card");
 const mmWaveStatus = document.querySelector("#mmwave-status");
 const presenceValue = document.querySelector("#presence-value");
@@ -30,8 +33,24 @@ const aiSummary = document.querySelector("#ai-summary");
 const aiSuggestions = document.querySelector("#ai-suggestions");
 const aiWarning = document.querySelector("#ai-warning");
 const aiDisclaimer = document.querySelector("#ai-disclaimer");
+const kpiDeviceValue = document.querySelector("#kpi-device-value");
+const kpiDeviceHint = document.querySelector("#kpi-device-hint");
+const kpiChannelsValue = document.querySelector("#kpi-channels-value");
+const kpiChannelsHint = document.querySelector("#kpi-channels-hint");
+const kpiTempValue = document.querySelector("#kpi-temp-value");
+const kpiTempHint = document.querySelector("#kpi-temp-hint");
+const kpiAckValue = document.querySelector("#kpi-ack-value");
+const kpiAckHint = document.querySelector("#kpi-ack-hint");
+const eventLog = document.querySelector("#event-log");
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const SPARK_LEN = 24;
+const MAX_EVENTS = 20;
+const sparks = { device: [], channels: [], temp: [], ack: [] };
+const eventEntries = [];
 let snapshot = null;
 let snapshotRenderedAt = performance.now();
+let needleAngle = 0;
+let needleFrame = 0;
 
 function setBadge(element, online, onlineText, offlineText) {
   element.textContent = online ? onlineText : offlineText;
@@ -50,6 +69,221 @@ function formatDuration(milliseconds) {
   if (hours > 0) return `${hours}h ${minutes}m`;
   if (minutes > 0) return `${minutes}m ${seconds}s`;
   return `${seconds}s`;
+}
+
+function formatClock(date = new Date()) {
+  return date.toLocaleTimeString("en-GB", { hour12: false });
+}
+
+function channelName(channelId) {
+  const card = cards.get(channelId);
+  return card?.querySelector("h2")?.textContent ?? channelId;
+}
+
+function pushSpark(key, value) {
+  if (!Number.isFinite(value)) return;
+  sparks[key].push(value);
+  if (sparks[key].length > SPARK_LEN) sparks[key].shift();
+}
+
+function sparkPath(values, width = 120, height = 32) {
+  const series = values.length === 1 ? [values[0], values[0]] : values;
+  if (series.length < 2) return "";
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const span = max - min || 1;
+  return series
+    .map((value, index) => {
+      const x = (index / (series.length - 1)) * width;
+      const y = height - 2 - ((value - min) / span) * (height - 4);
+      return `${index === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function renderSparks() {
+  document.querySelector("#kpi-device-spark").setAttribute("d", sparkPath(sparks.device));
+  document.querySelector("#kpi-channels-spark").setAttribute("d", sparkPath(sparks.channels));
+  document.querySelector("#kpi-temp-spark").setAttribute("d", sparkPath(sparks.temp));
+  document.querySelector("#kpi-ack-spark").setAttribute("d", sparkPath(sparks.ack));
+}
+
+function latestAckMs(data) {
+  let best = null;
+  let bestAge = Infinity;
+  for (const channel of Object.values(data.channels ?? {})) {
+    if (!Number.isFinite(channel.acknowledgement_ms)) continue;
+    const age = Number.isFinite(channel.last_update_age_ms)
+      ? channel.last_update_age_ms
+      : Infinity;
+    if (age < bestAge) {
+      bestAge = age;
+      best = channel.acknowledgement_ms;
+    }
+  }
+  return best;
+}
+
+function renderEventLog(flashNewest) {
+  if (eventEntries.length === 0) {
+    eventLog.replaceChildren();
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = "Waiting for live events";
+    eventLog.append(empty);
+    return;
+  }
+
+  eventLog.replaceChildren();
+  eventEntries.forEach((entry, index) => {
+    const item = document.createElement("li");
+    if (flashNewest && index === 0 && !reduceMotion) item.className = "log-flash";
+    const ts = document.createElement("span");
+    ts.className = "ts";
+    ts.textContent = entry.ts;
+    const src = document.createElement("span");
+    src.className = entry.tone === "act" ? "src act" : "src";
+    src.textContent = entry.source;
+    const event = document.createElement("span");
+    event.className = "event";
+    event.textContent = entry.event;
+    item.append(ts, src, event);
+    eventLog.append(item);
+  });
+}
+
+function pushEvent(source, event, tone = "sense") {
+  eventEntries.unshift({ ts: formatClock(), source, event, tone });
+  if (eventEntries.length > MAX_EVENTS) eventEntries.pop();
+  renderEventLog(true);
+}
+
+function collectEvents(previous, data) {
+  if (!previous) {
+    pushEvent("GATEWAY", "Dashboard snapshot received");
+    return;
+  }
+
+  if (previous.broker_connected !== data.broker_connected) {
+    pushEvent("MQTT", data.broker_connected ? "Broker online" : "Broker offline");
+  }
+  if (previous.device_online !== data.device_online) {
+    pushEvent(
+      "ESP32",
+      data.device_online ? "Device online" : "Device offline",
+      data.device_online ? "sense" : "act",
+    );
+  }
+
+  for (const channelId of cards.keys()) {
+    const before = previous.channels?.[channelId];
+    const after = data.channels?.[channelId];
+    if (!after) continue;
+    if (before?.state !== after.state || before?.source !== after.source) {
+      const stateLabel =
+        after.state === true ? "ON" : after.state === false ? "OFF" : "unknown";
+      pushEvent(after.source || "unknown", `${channelName(channelId)} ${stateLabel}`, "act");
+    }
+  }
+
+  const prevDht = previous.sensors?.dht11;
+  const nextDht = data.sensors?.dht11;
+  if (prevDht?.available !== nextDht?.available) {
+    pushEvent("DHT11", nextDht?.available ? "Available" : "Unavailable");
+  } else if (nextDht?.available) {
+    const tempDelta = Math.abs(
+      Number(nextDht.temperature_c) - Number(prevDht?.temperature_c),
+    );
+    const humidityDelta = Math.abs(
+      Number(nextDht.humidity_percent) - Number(prevDht?.humidity_percent),
+    );
+    if (tempDelta >= 1 || humidityDelta >= 5) {
+      pushEvent(
+        "DHT11",
+        `${Number(nextDht.temperature_c).toFixed(1)} C / ${Number(nextDht.humidity_percent).toFixed(1)} %`,
+      );
+    }
+  }
+
+  const prevWave = previous.sensors?.mmwave;
+  const nextWave = data.sensors?.mmwave;
+  if (prevWave?.available !== nextWave?.available) {
+    pushEvent("MMWAVE", nextWave?.available ? "Available" : "Unavailable");
+  } else if (nextWave?.available && prevWave?.presence !== nextWave?.presence) {
+    pushEvent("MMWAVE", nextWave.presence ? "Presence detected" : "Room clear");
+  }
+}
+
+function setNeedle(angle) {
+  const apply = (next) => {
+    needleAngle = next;
+    humidityNeedle.setAttribute("transform", `translate(100 110) rotate(${next})`);
+  };
+
+  if (needleFrame) cancelAnimationFrame(needleFrame);
+  if (reduceMotion || Math.abs(angle - needleAngle) < 0.4) {
+    apply(angle);
+    return;
+  }
+
+  const start = performance.now();
+  const from = needleAngle;
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / 700);
+    const eased = 1 - (1 - t) ** 3;
+    apply(from + (angle - from) * eased);
+    if (t < 1) needleFrame = requestAnimationFrame(tick);
+    else needleFrame = 0;
+  };
+  needleFrame = requestAnimationFrame(tick);
+}
+
+function renderHumidity(available, humidity) {
+  if (!available || !Number.isFinite(humidity)) {
+    humidityValue.textContent = "N/A";
+    humidityBand.textContent = "UNAVAILABLE";
+    humidityReadout.className = "gauge-readout na";
+    setNeedle(0);
+    return;
+  }
+
+  const band = humidity <= 40 ? "DRY" : humidity <= 70 ? "COMFORT" : "HUMID";
+  const tone = humidity <= 40 ? "sense" : humidity <= 70 ? "mid" : "high";
+  humidityValue.textContent = `${humidity.toFixed(0)}%`;
+  humidityBand.textContent = band;
+  humidityReadout.className = `gauge-readout ${tone}`;
+  setNeedle((Math.min(100, Math.max(0, humidity)) / 100) * 180);
+}
+
+function renderKpis(data) {
+  const online = data.device_online === true;
+  kpiDeviceValue.textContent = online ? "ONLINE" : "OFFLINE";
+  kpiDeviceHint.textContent = data.broker_connected ? "broker linked" : "broker down";
+  kpiDeviceValue.style.color = online ? "var(--sense)" : "var(--alert)";
+
+  const states = Object.values(data.channels ?? {});
+  const onCount = states.filter((channel) => channel.state === true).length;
+  const knownOff = states.filter((channel) => channel.state === false).length;
+  const known = states.filter((channel) => channel.state === true || channel.state === false).length;
+  kpiChannelsValue.textContent = `${onCount} / 8`;
+  kpiChannelsHint.textContent = known ? `${knownOff} off` : "waiting for state";
+
+  const dht11 = data.sensors?.dht11;
+  const tempAvailable = dht11?.available === true && Number.isFinite(Number(dht11.temperature_c));
+  kpiTempValue.textContent = tempAvailable
+    ? `${Number(dht11.temperature_c).toFixed(1)} C`
+    : "N/A";
+  kpiTempHint.textContent = tempAvailable ? "session spark" : "DHT11 unavailable";
+
+  const ack = latestAckMs(data);
+  kpiAckValue.textContent = Number.isFinite(ack) ? `${Math.round(ack)} ms` : "N/A";
+  kpiAckHint.textContent = Number.isFinite(ack) ? "last dashboard ack" : "no ack yet";
+
+  pushSpark("device", online ? 1 : 0);
+  pushSpark("channels", onCount);
+  if (tempAvailable) pushSpark("temp", Number(dht11.temperature_c));
+  if (Number.isFinite(ack)) pushSpark("ack", ack);
+  renderSparks();
 }
 
 function renderHeartbeatAge() {
@@ -94,9 +328,11 @@ function renderDiagnostics(data) {
 }
 
 function render(data) {
+  collectEvents(snapshot, data);
   snapshot = data;
   aiAnalyzeButton.disabled = false;
   renderDiagnostics(data);
+  renderKpis(data);
   setBadge(brokerBadge, data.broker_connected, "Broker online", "Broker offline");
   setBadge(deviceBadge, data.device_online, "Device online", "Device offline");
   const pirTargetReady = data.channels?.["light-1"]?.state === false;
@@ -110,9 +346,10 @@ function render(data) {
   temperatureValue.textContent = dht11Available
     ? `${Number(dht11.temperature_c).toFixed(1)} C`
     : "N/A";
-  humidityValue.textContent = dht11Available
-    ? `${Number(dht11.humidity_percent).toFixed(1)} %`
-    : "N/A";
+  renderHumidity(
+    dht11Available,
+    dht11Available ? Number(dht11.humidity_percent) : null,
+  );
 
   const mmWave = data.sensors?.mmwave;
   const mmWaveAvailable = mmWave?.available === true;
@@ -185,6 +422,7 @@ async function testPirMotion() {
       throw new Error(error.detail || "PIR test failed");
     }
     message.textContent = "PIR test sent; waiting for ESP32 acknowledgement";
+    pushEvent("PIR", "Test motion sent", "act");
   } catch (error) {
     message.textContent = error.message;
   } finally {
@@ -232,6 +470,7 @@ async function generateAiAdvice() {
     const advice = await response.json();
     renderAiAdvice(advice);
     message.textContent = advice.cached ? "Showing cached AI insight" : "AI insight ready";
+    pushEvent("AI", advice.cached ? "Cached insight shown" : "Insight generated");
   } catch (error) {
     aiMode.textContent = "Unavailable";
     message.textContent = error.message;
