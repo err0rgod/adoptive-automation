@@ -17,6 +17,7 @@ inline constexpr char kMqttBaseTopic[] = "adoptive/v1";
 
 inline constexpr uint32_t kMqttReconnectIntervalMs = 5000;
 inline constexpr uint32_t kMqttHeartbeatIntervalMs = 30000;
+inline constexpr uint32_t kWifiReconnectIntervalMs = 10000;
 
 // Prototype-only RainMaker Proof of Possession. Change before enrolling a
 // device that is not a bench prototype.

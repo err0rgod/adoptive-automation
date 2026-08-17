@@ -188,12 +188,15 @@ void initializeProvisioningName() {
 }
 
 void startWifi() {
+  // The ESP32 core performs its own retries; serviceWifiReconnect() below is
+  // an additional indefinite recovery path for prolonged outages.
+  WiFi.setAutoReconnect(true);
+
   if constexpr (wifi_config::kUseFixedCredentials) {
     // Credentials are deliberately not printed. They come from the local,
     // Git-ignored WifiSecrets.h and are reapplied on every boot.
     Serial.println("Connecting with fixed Wi-Fi credentials");
     WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
     WiFi.begin(wifi_config::kSsid, wifi_config::kPassword);
     return;
   }
@@ -202,6 +205,34 @@ void startWifi() {
                           WIFI_PROV_SCHEME_HANDLER_NONE,
                           WIFI_PROV_SECURITY_1, app_config::kRainMakerPop,
                           provisioningName);
+}
+
+void serviceWifiReconnect() {
+  static uint32_t lastAttemptMs = 0;
+
+  if (WiFi.status() == WL_CONNECTED) {
+    return;
+  }
+
+  const uint32_t now = millis();
+  if (now - lastAttemptMs < app_config::kWifiReconnectIntervalMs) {
+    return;
+  }
+  lastAttemptMs = now;
+
+  // During first-time RainMaker provisioning there are no saved credentials
+  // to retry. Once credentials exist, retry forever without blocking the main
+  // loop, relay control, reset button, or sensor polling.
+  if constexpr (!wifi_config::kUseFixedCredentials) {
+    if (WiFi.SSID().length() == 0) {
+      return;
+    }
+  }
+
+  Serial.println("Wi-Fi offline; retrying connection");
+  if (!WiFi.reconnect()) {
+    Serial.println("Wi-Fi reconnect request could not be started");
+  }
 }
 
 void serviceResetButton() {
@@ -251,6 +282,7 @@ void setup() {
 
 void loop() {
   static bool mqttWasConnected = false;
+  serviceWifiReconnect();
   localMqtt.loop();
 
   const bool mqttIsConnected = localMqtt.connected();
