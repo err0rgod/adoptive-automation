@@ -55,33 +55,30 @@ void PirLightAutomation::begin(RelayBank& relayBank,
 }
 
 void PirLightAutomation::loop() {
-  if constexpr (!automation_config::kPirLightEnabled) {
-    return;
-  }
-
   if (relayBank_ == nullptr || stateHandler_ == nullptr ||
       targetChannelIndex_ < 0) {
     return;
   }
 
   const uint32_t now = millis();
-  if (now - lastPollMs_ < automation_config::kPirPollIntervalMs) {
-    return;
-  }
-  lastPollMs_ = now;
+  if constexpr (automation_config::kPirLightEnabled) {
+    if (now - lastPollMs_ >= automation_config::kPirPollIntervalMs) {
+      lastPollMs_ = now;
 
-  const bool motion = digitalRead(automation_config::kPirPin) ==
-                      automation_config::kPirActiveLevel;
-  if (now - startedAtMs_ < automation_config::kPirWarmupMs) {
-    return;
+      const bool motion = digitalRead(automation_config::kPirPin) ==
+                          automation_config::kPirActiveLevel;
+      if (now - startedAtMs_ >= automation_config::kPirWarmupMs) {
+        if (!motion) {
+          suppressedUntilClear_ = false;
+        } else if (!suppressedUntilClear_) {
+          handleMotion(now);
+        }
+      }
+    }
   }
 
-  if (!motion) {
-    suppressedUntilClear_ = false;
-  } else if (!suppressedUntilClear_) {
-    handleMotion(now);
-  }
-
+  // Dashboard test events use the same ownership and timer state even when no
+  // physical PIR is configured, so auto-off must always be serviced.
   if (autoOffArmed_ &&
       now - lastMotionMs_ >= automation_config::kPirOnDurationMs) {
     autoOffArmed_ = false;
