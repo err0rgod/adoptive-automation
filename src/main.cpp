@@ -32,8 +32,11 @@ SensorTelemetry sensorTelemetry;
 PirLightAutomation pirLightAutomation;
 Device* rainMakerDevices[kChannelCount]{};
 Device* rainMakerSensorDevice = nullptr;
+Device* rainMakerClimateDevice = nullptr;
 char provisioningName[20]{};
 constexpr uint8_t kResetButtonPin = 0;
+constexpr char kHumidityParamName[] = "Humidity";
+constexpr char kHumidityParamType[] = "esp.param.humidity";
 
 void reportAllStatesToMqtt() {
   for (size_t index = 0; index < kChannelCount; ++index) {
@@ -43,10 +46,16 @@ void reportAllStatesToMqtt() {
 }
 
 void reportSensorStateToRainMaker(const SensorSnapshot& snapshot) {
+  if (snapshot.dht11Available && rainMakerClimateDevice != nullptr) {
+    rainMakerClimateDevice->updateAndReportParam(
+        ESP_RMAKER_DEF_TEMPERATURE_NAME, snapshot.temperatureC);
+    rainMakerClimateDevice->updateAndReportParam(kHumidityParamName,
+                                                  snapshot.humidityPercent);
+  }
+
   if (rainMakerSensorDevice == nullptr) {
     return;
   }
-
   char temperature[16] = "N/A";
   char humidity[16] = "N/A";
   const char* presence = "N/A";
@@ -143,6 +152,18 @@ void initializeRainMakerDevices(Node& node) {
     device->addPowerParam(false);
     device->assignPrimaryParam(
         device->getParamByName(ESP_RMAKER_DEF_POWER_NAME));
+    if (channel.kind == ChannelKind::AirConditioner) {
+      const auto& sensors = sensorTelemetry.snapshot();
+      if (sensors.dht11Available) {
+        device->addTemperatureParam(sensors.temperatureC);
+        device->addParam(Param(kHumidityParamName, kHumidityParamType,
+                               value(sensors.humidityPercent), PROP_FLAG_READ));
+        rainMakerClimateDevice = device;
+      } else {
+        Serial.println(
+            "DHT11 unavailable at boot; AC climate parameters omitted");
+      }
+    }
     device->addCb(onRainMakerWrite);
     node.addDevice(*device);
     rainMakerDevices[index] = device;
@@ -277,6 +298,7 @@ void setup() {
   relayBank.begin();
   pirLightAutomation.begin(relayBank, applyChannelState);
   sensorTelemetry.begin();
+  sensorTelemetry.poll();
   pinMode(kResetButtonPin, INPUT_PULLUP);
   localMqtt.begin(onMqttCommand, onMqttPirTest);
   initializeProvisioningName();

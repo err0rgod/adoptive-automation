@@ -15,6 +15,9 @@ bool differs(float left, float right) {
 void SensorTelemetry::begin() {
   if constexpr (sensor_config::kDht11Enabled) {
     dht11_.begin();
+    // Permit an immediate first sample so RainMaker can advertise only valid
+    // climate values while constructing its node configuration.
+    lastDht11ReadMs_ = millis() - sensor_config::kDht11IntervalMs;
   }
 
   if constexpr (sensor_config::kMmWaveEnabled) {
@@ -23,6 +26,7 @@ void SensorTelemetry::begin() {
     snapshot_.presenceDetected =
         digitalRead(sensor_config::kMmWavePin) ==
         sensor_config::kMmWaveActiveLevel;
+    lastMmWaveReadMs_ = millis() - sensor_config::kMmWaveIntervalMs;
   }
 }
 
