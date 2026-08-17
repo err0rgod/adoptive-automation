@@ -8,6 +8,8 @@
 
 enum class ChannelKind : uint8_t {
   Light,
+  Socket,
+  AirConditioner,
   Fan,
 };
 
@@ -26,9 +28,9 @@ inline constexpr ChannelDefinition kChannelDefinitions[] = {
     {"light-1", "Light 1", ChannelKind::Light, 13, RELAY_ACTIVE_LEVEL},
     {"light-2", "Light 2", ChannelKind::Light, 14, RELAY_ACTIVE_LEVEL},
     {"light-3", "Light 3", ChannelKind::Light, 16, RELAY_ACTIVE_LEVEL},
-    {"light-4", "Light 4", ChannelKind::Light, 17, RELAY_ACTIVE_LEVEL},
-    {"light-5", "Light 5", ChannelKind::Light, 18, RELAY_ACTIVE_LEVEL},
-    {"light-6", "Light 6", ChannelKind::Light, 19, RELAY_ACTIVE_LEVEL},
+    {"socket-1", "Socket 1", ChannelKind::Socket, 17, RELAY_ACTIVE_LEVEL},
+    {"socket-2", "Socket 2", ChannelKind::Socket, 18, RELAY_ACTIVE_LEVEL},
+    {"ac-1", "AC", ChannelKind::AirConditioner, 19, RELAY_ACTIVE_LEVEL},
     {"fan-1", "Fan 1", ChannelKind::Fan, 23, RELAY_ACTIVE_LEVEL},
     {"fan-2", "Fan 2", ChannelKind::Fan, 25, RELAY_ACTIVE_LEVEL},
 };
@@ -36,4 +38,3 @@ inline constexpr ChannelDefinition kChannelDefinitions[] = {
 inline constexpr size_t kChannelCount =
     sizeof(kChannelDefinitions) / sizeof(kChannelDefinitions[0]);
 static_assert(kChannelCount == 8, "The MVP requires exactly eight channels");
-

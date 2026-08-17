@@ -75,7 +75,9 @@
         {% for channel in channels %}
         <article class="channel-card" data-channel="{{ channel.id }}">
           <div class="channel-heading">
-            <span class="kind-icon" aria-hidden="true">{{ "L" if channel.kind == "light" else "F" }}</span>
+            <span class="kind-icon" aria-hidden="true">
+              {% if channel.kind == "light" %}L{% elif channel.kind == "socket" %}S{% elif channel.kind == "ac" %}AC{% else %}F{% endif %}
+            </span>
             <div>
               <p class="channel-kind">{{ channel.kind }}</p>
               <h2>{{ channel.name }}</h2>

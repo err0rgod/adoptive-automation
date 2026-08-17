@@ -15,9 +15,9 @@ CHANNELS = (
     Channel("light-1", "Light 1", "light"),
     Channel("light-2", "Light 2", "light"),
     Channel("light-3", "Light 3", "light"),
-    Channel("light-4", "Light 4", "light"),
-    Channel("light-5", "Light 5", "light"),
-    Channel("light-6", "Light 6", "light"),
+    Channel("socket-1", "Socket 1", "socket"),
+    Channel("socket-2", "Socket 2", "socket"),
+    Channel("ac-1", "AC", "ac"),
     Channel("fan-1", "Fan 1", "fan"),
     Channel("fan-2", "Fan 2", "fan"),
 )

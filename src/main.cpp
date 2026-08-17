@@ -110,18 +110,30 @@ void onRainMakerWrite(Device*, Param* param, const param_val_t value,
   applyChannelState(channelIndex, value.val.b, "rainmaker", "");
 }
 
+const char* rainMakerDeviceType(ChannelKind kind) {
+  switch (kind) {
+    case ChannelKind::Light:
+      return ESP_RMAKER_DEVICE_LIGHTBULB;
+    case ChannelKind::Socket:
+      return ESP_RMAKER_DEVICE_SOCKET;
+    case ChannelKind::AirConditioner:
+      return ESP_RMAKER_DEVICE_AIR_CONDITIONER;
+    case ChannelKind::Fan:
+      return ESP_RMAKER_DEVICE_FAN;
+  }
+  return ESP_RMAKER_DEVICE_SWITCH;
+}
+
 void initializeRainMakerDevices(Node& node) {
   static uint8_t channelIndexes[kChannelCount]{};
 
   for (size_t index = 0; index < kChannelCount; ++index) {
     channelIndexes[index] = static_cast<uint8_t>(index);
     const auto& channel = kChannelDefinitions[index];
-    const char* deviceType = channel.kind == ChannelKind::Light
-                                 ? ESP_RMAKER_DEVICE_LIGHTBULB
-                                 : ESP_RMAKER_DEVICE_FAN;
 
-    auto* device =
-        new Device(channel.displayName, deviceType, &channelIndexes[index]);
+    auto* device = new Device(channel.displayName,
+                              rainMakerDeviceType(channel.kind),
+                              &channelIndexes[index]);
     if (device == nullptr || device->getDeviceHandle() == nullptr) {
       Serial.printf("Failed to create RainMaker device %s\n", channel.id);
       continue;

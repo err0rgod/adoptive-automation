@@ -24,6 +24,21 @@ class MqttServiceTests(unittest.TestCase):
         self.assertEqual(len(snapshot["channels"]), 8)
         self.assertEqual(set(snapshot["channels"]), {item.id for item in CHANNELS})
 
+    def test_channel_layout_matches_room_wiring(self) -> None:
+        self.assertEqual(
+            [(channel.id, channel.name, channel.kind) for channel in CHANNELS],
+            [
+                ("light-1", "Light 1", "light"),
+                ("light-2", "Light 2", "light"),
+                ("light-3", "Light 3", "light"),
+                ("socket-1", "Socket 1", "socket"),
+                ("socket-2", "Socket 2", "socket"),
+                ("ac-1", "AC", "ac"),
+                ("fan-1", "Fan 1", "fan"),
+                ("fan-2", "Fan 2", "fan"),
+            ],
+        )
+
     def test_sensor_snapshot_defaults_to_unavailable(self) -> None:
         sensors = self.service.snapshot()["sensors"]
         self.assertIs(sensors["dht11"]["available"], False)
