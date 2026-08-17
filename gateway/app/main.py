@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from .ai_advisor import AiAdvisor
 from .config import CHANNELS, CHANNEL_BY_ID, settings
 from .mqtt_service import MqttService
 
@@ -44,6 +45,7 @@ class SocketHub:
 
 hub = SocketHub()
 mqtt_service = MqttService(settings, hub.broadcast)
+ai_advisor = AiAdvisor(settings)
 
 
 @asynccontextmanager
@@ -95,6 +97,13 @@ async def test_pir_motion():
     except ConnectionError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     return {"accepted": True, "command_id": command_id}
+
+
+@app.post("/api/ai/advice")
+async def ai_advice():
+    # The advisor receives a sanitized snapshot and has no MQTT client, so it
+    # cannot send commands or become a device-state owner.
+    return await ai_advisor.analyze(mqtt_service.snapshot())
 
 
 @app.websocket("/ws")

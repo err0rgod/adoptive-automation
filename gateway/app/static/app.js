@@ -22,6 +22,14 @@ const freeHeap = document.querySelector("#free-heap");
 const mqttSessions = document.querySelector("#mqtt-sessions");
 const brokerEndpoint = document.querySelector("#broker-endpoint");
 const pendingCommands = document.querySelector("#pending-commands");
+const aiAnalyzeButton = document.querySelector("#ai-analyze-button");
+const aiMode = document.querySelector("#ai-mode");
+const aiResult = document.querySelector("#ai-result");
+const aiResultTitle = document.querySelector("#ai-result-title");
+const aiSummary = document.querySelector("#ai-summary");
+const aiSuggestions = document.querySelector("#ai-suggestions");
+const aiWarning = document.querySelector("#ai-warning");
+const aiDisclaimer = document.querySelector("#ai-disclaimer");
 let snapshot = null;
 let snapshotRenderedAt = performance.now();
 
@@ -87,6 +95,7 @@ function renderDiagnostics(data) {
 
 function render(data) {
   snapshot = data;
+  aiAnalyzeButton.disabled = false;
   renderDiagnostics(data);
   setBadge(brokerBadge, data.broker_connected, "Broker online", "Broker offline");
   setBadge(deviceBadge, data.device_online, "Device online", "Device offline");
@@ -183,11 +192,60 @@ async function testPirMotion() {
   }
 }
 
+function renderAiAdvice(advice) {
+  aiResult.hidden = false;
+  aiMode.textContent = advice.mode === "deepseek"
+    ? `DeepSeek · ${advice.model}`
+    : "Local demo";
+  aiMode.classList.toggle("healthy", advice.mode === "deepseek");
+  aiResultTitle.textContent = advice.title;
+  aiSummary.textContent = advice.summary;
+  aiSuggestions.replaceChildren();
+
+  for (const suggestion of advice.suggestions ?? []) {
+    const item = document.createElement("li");
+    const heading = document.createElement("strong");
+    const reason = document.createElement("p");
+    const confidence = document.createElement("span");
+    heading.textContent = suggestion.title;
+    reason.textContent = suggestion.reason;
+    confidence.textContent = `${suggestion.confidence_percent}% confidence`;
+    item.append(heading, reason, confidence);
+    aiSuggestions.append(item);
+  }
+
+  aiWarning.hidden = !advice.warning;
+  aiWarning.textContent = advice.warning ?? "";
+  aiDisclaimer.textContent = advice.disclaimer;
+}
+
+async function generateAiAdvice() {
+  aiAnalyzeButton.disabled = true;
+  aiMode.textContent = "Analyzing...";
+  message.textContent = "Generating a read-only AI insight...";
+  try {
+    const response = await fetch("/api/ai/advice", { method: "POST" });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "AI insight failed");
+    }
+    const advice = await response.json();
+    renderAiAdvice(advice);
+    message.textContent = advice.cached ? "Showing cached AI insight" : "AI insight ready";
+  } catch (error) {
+    aiMode.textContent = "Unavailable";
+    message.textContent = error.message;
+  } finally {
+    aiAnalyzeButton.disabled = snapshot === null;
+  }
+}
+
 for (const [channelId, card] of cards) {
   card.querySelector("button").addEventListener("click", () => sendCommand(channelId));
 }
 
 pirTestButton.addEventListener("click", testPirMotion);
+aiAnalyzeButton.addEventListener("click", generateAiAdvice);
 
 function connectWebSocket() {
   const protocol = location.protocol === "https:" ? "wss" : "ws";

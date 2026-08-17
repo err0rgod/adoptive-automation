@@ -31,6 +31,11 @@ class Settings:
     device_id: str = os.getenv("ADOPTIVE_DEVICE_ID", "room-controller-01")
     web_host: str = os.getenv("ADOPTIVE_WEB_HOST", "0.0.0.0")
     web_port: int = int(os.getenv("ADOPTIVE_WEB_PORT", "8000"))
+    deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY", "")
+    deepseek_base_url: str = os.getenv(
+        "DEEPSEEK_BASE_URL", "https://api.deepseek.com"
+    )
+    deepseek_model: str = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
     topic_root: str = "adoptive/v1"
 
     @property

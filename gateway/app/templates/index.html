@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Adoptive Automation</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v=diagnostics-1">
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v=ai-demo-1">
   </head>
   <body>
     <main class="shell">
@@ -90,6 +90,29 @@
         {% endfor %}
       </section>
 
+      <section class="ai-panel" aria-labelledby="ai-title">
+        <div class="ai-heading">
+          <div>
+            <p class="channel-kind">Read-only preview</p>
+            <h2 id="ai-title">AI Insights</h2>
+            <p class="automation-copy">Analyzes the live snapshot but cannot operate relays.</p>
+          </div>
+          <div class="ai-actions">
+            <span id="ai-mode" class="sensor-status">Not run</span>
+            <button id="ai-analyze-button" class="test-button" type="button" disabled>
+              Generate insight
+            </button>
+          </div>
+        </div>
+        <div id="ai-result" class="ai-result" hidden>
+          <h3 id="ai-result-title"></h3>
+          <p id="ai-summary"></p>
+          <ul id="ai-suggestions" class="ai-suggestions"></ul>
+          <p id="ai-warning" class="ai-warning" hidden></p>
+          <p id="ai-disclaimer" class="ai-disclaimer"></p>
+        </div>
+      </section>
+
       <aside id="ip-warning" class="warning-banner" role="status" hidden></aside>
 
       <section class="diagnostics-panel" aria-labelledby="diagnostics-title">
@@ -117,6 +140,6 @@
         <span id="message">Connecting...</span>
       </footer>
     </main>
-    <script src="{{ url_for('static', path='/app.js') }}?v=diagnostics-1" defer></script>
+    <script src="{{ url_for('static', path='/app.js') }}?v=ai-demo-1" defer></script>
   </body>
 </html>
