@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import paho.mqtt.client as mqtt
 
@@ -31,6 +31,22 @@ class MqttServiceTests(unittest.TestCase):
         self.assertIsNone(sensors["dht11"]["humidity_percent"])
         self.assertIs(sensors["mmwave"]["available"], False)
         self.assertIsNone(sensors["mmwave"]["presence"])
+
+    def test_snapshot_contains_gateway_diagnostics(self) -> None:
+        diagnostics = self.service.snapshot()["diagnostics"]
+        self.assertEqual(diagnostics["mqtt_host"], settings.mqtt_host)
+        self.assertEqual(diagnostics["mqtt_port"], settings.mqtt_port)
+        self.assertEqual(diagnostics["pending_command_count"], 0)
+        self.assertIsNone(diagnostics["heartbeat_age_ms"])
+
+    def test_snapshot_warns_when_lan_ip_changes(self) -> None:
+        with patch.object(
+            self.service, "_local_lan_address", return_value="10.0.0.99"
+        ):
+            diagnostics = self.service.snapshot()["diagnostics"]
+
+        self.assertIn("10.0.0.99", diagnostics["ip_warning"])
+        self.assertIn(settings.mqtt_host, diagnostics["ip_warning"])
 
     def test_sensor_state_message_updates_snapshot(self) -> None:
         message = SimpleNamespace(
@@ -96,6 +112,26 @@ class MqttServiceTests(unittest.TestCase):
         self.assertIs(state["state"], True)
         self.assertEqual(state["source"], "rainmaker")
         self.assertEqual(state["command_id"], "command-1")
+        self.assertIsNotNone(state["last_update_age_ms"])
+
+    def test_heartbeat_updates_diagnostics(self) -> None:
+        message = SimpleNamespace(
+            topic=f"{settings.device_topic}/heartbeat",
+            payload=json.dumps(
+                {
+                    "uptime_ms": 1234,
+                    "wifi_rssi": -51,
+                    "free_heap": 150000,
+                    "firmware": "0.1.0",
+                }
+            ).encode(),
+        )
+
+        self.service._on_message(self.service.client, None, message)
+
+        snapshot = self.service.snapshot()
+        self.assertEqual(snapshot["heartbeat"]["wifi_rssi"], -51)
+        self.assertIsNotNone(snapshot["diagnostics"]["heartbeat_age_ms"])
 
     def test_dashboard_command_has_source_and_unique_id(self) -> None:
         self.service.connected = True
@@ -111,6 +147,24 @@ class MqttServiceTests(unittest.TestCase):
         self.assertEqual(body["source"], "dashboard")
         self.assertEqual(body["command_id"], command_id)
         self.assertTrue(command_id)
+
+        acknowledgement = SimpleNamespace(
+            topic=f"{settings.device_topic}/channels/fan-1/state",
+            payload=json.dumps(
+                {
+                    "state": True,
+                    "source": "dashboard",
+                    "command_id": command_id,
+                    "uptime_ms": 5000,
+                }
+            ).encode(),
+        )
+        self.service._on_message(self.service.client, None, acknowledgement)
+        snapshot = self.service.snapshot()
+        self.assertIsNotNone(
+            snapshot["channels"]["fan-1"]["acknowledgement_ms"]
+        )
+        self.assertEqual(snapshot["diagnostics"]["pending_command_count"], 0)
 
     def test_pir_test_command_has_source_and_unique_id(self) -> None:
         self.service.connected = True

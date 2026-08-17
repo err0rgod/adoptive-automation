@@ -32,7 +32,7 @@ button { font: inherit; }
   padding: 44px 0 24px;
 }
 
-.page-header, footer, .channel-heading, .status-panel, .sensor-heading {
+.page-header, footer, .channel-heading, .status-panel, .sensor-heading, .section-heading {
   display: flex;
   align-items: center;
 }
@@ -59,7 +59,7 @@ h1 {
   letter-spacing: -0.035em;
 }
 
-.subtitle, .source { color: var(--muted); }
+.subtitle, .source, .channel-diagnostic { color: var(--muted); }
 .subtitle { margin: 8px 0 0; }
 
 .status-panel {
@@ -80,6 +80,53 @@ h1 {
 
 .badge.online { border-color: var(--border-active); color: var(--accent-strong); }
 .badge.offline { color: var(--danger); }
+
+.warning-banner {
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid #8b6938;
+  border-radius: 10px;
+  background: #2b2115;
+  color: #ffd28f;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.diagnostics-panel {
+  margin-bottom: 24px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.section-heading { justify-content: space-between; gap: 16px; }
+.sensor-status.healthy { color: var(--accent-strong); }
+.sensor-status.stale { color: var(--danger); }
+
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0 0;
+}
+
+.diagnostic-grid div {
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--control);
+}
+
+.diagnostic-grid dt { color: var(--muted); font-size: 0.7rem; }
+.diagnostic-grid dd {
+  margin: 5px 0 0;
+  overflow: hidden;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .sensor-grid {
   display: grid;
@@ -170,6 +217,8 @@ h1 {
 .test-button:focus-visible { outline: 3px solid #2a6b4b; outline-offset: 2px; }
 .test-button:disabled { cursor: not-allowed; opacity: 0.48; }
 
+.relay-heading { margin: 0 0 14px 2px; }
+
 .channel-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -234,6 +283,15 @@ h2 { margin: 0; font-size: 1.1rem; }
   white-space: nowrap;
 }
 
+.channel-diagnostic {
+  min-height: 1em;
+  margin: 6px 1px 0;
+  overflow: hidden;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 footer {
   justify-content: space-between;
   gap: 20px;
@@ -244,6 +302,7 @@ footer {
 
 @media (max-width: 850px) {
   .channel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .diagnostic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 520px) {
@@ -252,6 +311,7 @@ footer {
   .status-panel { justify-content: flex-start; }
   .channel-grid { grid-template-columns: 1fr; }
   .sensor-grid { grid-template-columns: 1fr; }
+  .diagnostic-grid { grid-template-columns: 1fr; }
   .automation-panel { align-items: stretch; flex-direction: column; }
   .channel-card { min-height: 200px; }
   footer { align-items: flex-start; flex-direction: column; }

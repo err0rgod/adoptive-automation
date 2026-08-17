@@ -6,9 +6,10 @@ import logging
 import re
 import socket
 import threading
+import time
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 
 import paho.mqtt.client as mqtt
@@ -25,6 +26,8 @@ class ChannelState:
     source: str = "unknown"
     command_id: str = ""
     uptime_ms: int | None = None
+    received_at: float | None = None
+    acknowledgement_ms: int | None = None
 
 
 Broadcast = Callable[[dict[str, Any]], Awaitable[None]]
@@ -37,6 +40,11 @@ class MqttService:
         self.loop: asyncio.AbstractEventLoop | None = None
         self.connected = False
         self.device_online = False
+        self.started_at = time.monotonic()
+        self.heartbeat_received_at: float | None = None
+        self.broker_connect_count = 0
+        self.pending_commands: dict[str, tuple[str, float]] = {}
+        self._command_lock = threading.Lock()
         self.states = {channel.id: ChannelState() for channel in CHANNELS}
         self.sensors: dict[str, Any] = {
             "dht11": {
@@ -97,14 +105,61 @@ class MqttService:
                 self._zeroconf.close()
 
     def snapshot(self) -> dict[str, Any]:
+        now = time.monotonic()
+        with self._command_lock:
+            expired_commands = [
+                command_id
+                for command_id, (_, sent_at) in self.pending_commands.items()
+                if now - sent_at > 30
+            ]
+            for command_id in expired_commands:
+                self.pending_commands.pop(command_id, None)
+            pending_command_count = len(self.pending_commands)
+
+        lan_address = self._local_lan_address()
+        ip_warning = None
+        if (
+            not lan_address.startswith("127.")
+            and lan_address != self.settings.mqtt_host
+        ):
+            ip_warning = (
+                f"Laptop LAN IP is {lan_address}, but MQTT is configured for "
+                f"{self.settings.mqtt_host}."
+            )
+
         return {
             "broker_connected": self.connected,
             "device_online": self.device_online,
             "heartbeat": self.heartbeat,
             "sensors": self.sensors,
             "channels": {
-                channel_id: asdict(state)
+                channel_id: {
+                    "state": state.state,
+                    "source": state.source,
+                    "command_id": state.command_id,
+                    "uptime_ms": state.uptime_ms,
+                    "last_update_age_ms": round(
+                        (now - state.received_at) * 1000
+                    )
+                    if state.received_at is not None
+                    else None,
+                    "acknowledgement_ms": state.acknowledgement_ms,
+                }
                 for channel_id, state in self.states.items()
+            },
+            "diagnostics": {
+                "gateway_uptime_ms": round((now - self.started_at) * 1000),
+                "mqtt_host": self.settings.mqtt_host,
+                "mqtt_port": self.settings.mqtt_port,
+                "lan_address": lan_address,
+                "ip_warning": ip_warning,
+                "broker_connect_count": self.broker_connect_count,
+                "pending_command_count": pending_command_count,
+                "heartbeat_age_ms": round(
+                    (now - self.heartbeat_received_at) * 1000
+                )
+                if self.heartbeat_received_at is not None
+                else None,
             },
         }
 
@@ -124,8 +179,17 @@ class MqttService:
             },
             separators=(",", ":"),
         )
-        result = self.client.publish(topic, payload, qos=1, retain=False)
+        with self._command_lock:
+            self.pending_commands[command_id] = (channel_id, time.monotonic())
+        try:
+            result = self.client.publish(topic, payload, qos=1, retain=False)
+        except Exception:
+            with self._command_lock:
+                self.pending_commands.pop(command_id, None)
+            raise
         if result.rc != mqtt.MQTT_ERR_SUCCESS:
+            with self._command_lock:
+                self.pending_commands.pop(command_id, None)
             raise ConnectionError(f"MQTT publish failed with code {result.rc}")
         return command_id
 
@@ -157,6 +221,7 @@ class MqttService:
             logger.error("MQTT connection rejected: %s", reason_code)
             return
 
+        self.broker_connect_count += 1
         logger.info("Connected to MQTT broker")
         client.subscribe(f"{self.settings.device_topic}/channels/+/state", qos=1)
         client.subscribe(f"{self.settings.device_topic}/availability", qos=1)
@@ -189,6 +254,7 @@ class MqttService:
         elif message.topic == heartbeat_topic:
             try:
                 self.heartbeat = json.loads(payload_text)
+                self.heartbeat_received_at = time.monotonic()
             except json.JSONDecodeError:
                 logger.warning("Ignored malformed heartbeat: %s", payload_text)
                 return
@@ -245,11 +311,21 @@ class MqttService:
                 state = payload["state"]
                 if not isinstance(state, bool):
                     raise ValueError("state must be boolean")
+                command_id = str(payload.get("command_id", ""))
+                acknowledgement_ms = None
+                with self._command_lock:
+                    pending = self.pending_commands.pop(command_id, None)
+                if pending is not None and pending[0] == channel_id:
+                    acknowledgement_ms = round(
+                        (time.monotonic() - pending[1]) * 1000
+                    )
                 self.states[channel_id] = ChannelState(
                     state=state,
                     source=str(payload.get("source", "unknown")),
-                    command_id=str(payload.get("command_id", "")),
+                    command_id=command_id,
                     uptime_ms=payload.get("uptime_ms"),
+                    received_at=time.monotonic(),
+                    acknowledgement_ms=acknowledgement_ms,
                 )
             except (json.JSONDecodeError, KeyError, ValueError, TypeError):
                 logger.warning("Ignored malformed channel state: %s", payload_text)

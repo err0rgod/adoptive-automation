@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Adoptive Automation</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v=diagnostics-1">
   </head>
   <body>
     <main class="shell">
@@ -19,6 +19,28 @@
           <span id="device-status" class="badge offline">Device offline</span>
         </div>
       </header>
+
+      <aside id="ip-warning" class="warning-banner" role="status" hidden></aside>
+
+      <section class="diagnostics-panel" aria-labelledby="diagnostics-title">
+        <div class="section-heading">
+          <div>
+            <p class="channel-kind">Live controller health</p>
+            <h2 id="diagnostics-title">Diagnostics</h2>
+          </div>
+          <span id="heartbeat-health" class="sensor-status">Waiting</span>
+        </div>
+        <dl class="diagnostic-grid">
+          <div><dt>Heartbeat</dt><dd id="heartbeat-age">N/A</dd></div>
+          <div><dt>Wi-Fi signal</dt><dd id="wifi-rssi">N/A</dd></div>
+          <div><dt>Firmware</dt><dd id="firmware-version">N/A</dd></div>
+          <div><dt>ESP32 uptime</dt><dd id="device-uptime">N/A</dd></div>
+          <div><dt>Free heap</dt><dd id="free-heap">N/A</dd></div>
+          <div><dt>MQTT sessions</dt><dd id="mqtt-sessions">0</dd></div>
+          <div><dt>Broker endpoint</dt><dd id="broker-endpoint">N/A</dd></div>
+          <div><dt>Pending commands</dt><dd id="pending-commands">0</dd></div>
+        </dl>
+      </section>
 
       <section class="sensor-grid" aria-label="Room sensors">
         <article class="sensor-card" id="dht11-card">
@@ -65,6 +87,12 @@
         </button>
       </section>
 
+      <div class="relay-heading">
+        <p class="channel-kind">Acknowledged controls</p>
+        <h2>Relay test and control</h2>
+        <p class="automation-copy">Toggle one channel at a time and confirm the ESP32 acknowledgement below it.</p>
+      </div>
+
       <section class="channel-grid" aria-label="Relay channels">
         {% for channel in channels %}
         <article class="channel-card" data-channel="{{ channel.id }}">
@@ -79,6 +107,7 @@
             <span class="power-state">Unknown</span>
           </button>
           <p class="source">Waiting for device state</p>
+          <p class="channel-diagnostic">No acknowledgement yet</p>
         </article>
         {% endfor %}
       </section>
@@ -88,6 +117,6 @@
         <span id="message">Connecting...</span>
       </footer>
     </main>
-    <script src="{{ url_for('static', path='/app.js') }}" defer></script>
+    <script src="{{ url_for('static', path='/app.js') }}?v=diagnostics-1" defer></script>
   </body>
 </html>

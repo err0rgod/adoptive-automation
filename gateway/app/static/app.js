@@ -12,7 +12,18 @@ const mmWaveCard = document.querySelector("#mmwave-card");
 const mmWaveStatus = document.querySelector("#mmwave-status");
 const presenceValue = document.querySelector("#presence-value");
 const pirTestButton = document.querySelector("#pir-test-button");
+const ipWarning = document.querySelector("#ip-warning");
+const heartbeatHealth = document.querySelector("#heartbeat-health");
+const heartbeatAge = document.querySelector("#heartbeat-age");
+const wifiRssi = document.querySelector("#wifi-rssi");
+const firmwareVersion = document.querySelector("#firmware-version");
+const deviceUptime = document.querySelector("#device-uptime");
+const freeHeap = document.querySelector("#free-heap");
+const mqttSessions = document.querySelector("#mqtt-sessions");
+const brokerEndpoint = document.querySelector("#broker-endpoint");
+const pendingCommands = document.querySelector("#pending-commands");
 let snapshot = null;
+let snapshotRenderedAt = performance.now();
 
 function setBadge(element, online, onlineText, offlineText) {
   element.textContent = online ? onlineText : offlineText;
@@ -20,8 +31,63 @@ function setBadge(element, online, onlineText, offlineText) {
   element.classList.toggle("offline", !online);
 }
 
+function formatDuration(milliseconds) {
+  if (!Number.isFinite(milliseconds)) return "N/A";
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+function renderHeartbeatAge() {
+  const baseAge = snapshot?.diagnostics?.heartbeat_age_ms;
+  if (!Number.isFinite(baseAge)) {
+    heartbeatAge.textContent = "N/A";
+    heartbeatHealth.textContent = "Waiting";
+    heartbeatHealth.classList.remove("healthy", "stale");
+    return;
+  }
+
+  const currentAge = baseAge + (performance.now() - snapshotRenderedAt);
+  const healthy = currentAge < 45000;
+  heartbeatAge.textContent = `${formatDuration(currentAge)} ago`;
+  heartbeatHealth.textContent = healthy ? "Healthy" : "Stale";
+  heartbeatHealth.classList.toggle("healthy", healthy);
+  heartbeatHealth.classList.toggle("stale", !healthy);
+}
+
+function renderDiagnostics(data) {
+  const diagnostics = data.diagnostics ?? {};
+  const heartbeat = data.heartbeat ?? {};
+  snapshotRenderedAt = performance.now();
+  renderHeartbeatAge();
+
+  wifiRssi.textContent = Number.isFinite(heartbeat.wifi_rssi)
+    ? `${heartbeat.wifi_rssi} dBm`
+    : "N/A";
+  firmwareVersion.textContent = heartbeat.firmware ?? "N/A";
+  deviceUptime.textContent = formatDuration(heartbeat.uptime_ms);
+  freeHeap.textContent = Number.isFinite(heartbeat.free_heap)
+    ? `${Math.round(heartbeat.free_heap / 1024)} KB`
+    : "N/A";
+  mqttSessions.textContent = diagnostics.broker_connect_count ?? 0;
+  brokerEndpoint.textContent = diagnostics.mqtt_host
+    ? `${diagnostics.mqtt_host}:${diagnostics.mqtt_port}`
+    : "N/A";
+  pendingCommands.textContent = diagnostics.pending_command_count ?? 0;
+
+  ipWarning.hidden = !diagnostics.ip_warning;
+  ipWarning.textContent = diagnostics.ip_warning ?? "";
+}
+
 function render(data) {
   snapshot = data;
+  renderDiagnostics(data);
   setBadge(brokerBadge, data.broker_connected, "Broker online", "Broker offline");
   setBadge(deviceBadge, data.device_online, "Device online", "Device offline");
   const pirTargetReady = data.channels?.["light-1"]?.state === false;
@@ -54,6 +120,7 @@ function render(data) {
     const button = card.querySelector("button");
     const stateLabel = card.querySelector(".power-state");
     const sourceLabel = card.querySelector(".source");
+    const diagnosticLabel = card.querySelector(".channel-diagnostic");
     const known = channel?.state !== null && channel?.state !== undefined;
     const on = known && channel.state;
 
@@ -63,6 +130,13 @@ function render(data) {
     button.setAttribute("aria-pressed", String(on));
     stateLabel.textContent = known ? (on ? "ON" : "OFF") : "Unknown";
     sourceLabel.textContent = known ? `Last changed by ${channel.source}` : "Waiting for device state";
+    if (!known) {
+      diagnosticLabel.textContent = "No acknowledgement yet";
+    } else if (Number.isFinite(channel.acknowledgement_ms)) {
+      diagnosticLabel.textContent = `Dashboard acknowledged in ${channel.acknowledgement_ms} ms`;
+    } else {
+      diagnosticLabel.textContent = `State update ${formatDuration(channel.last_update_age_ms)} ago`;
+    }
   }
 }
 
@@ -130,3 +204,4 @@ function connectWebSocket() {
 }
 
 connectWebSocket();
+setInterval(renderHeartbeatAge, 1000);
